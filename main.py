@@ -23,8 +23,8 @@ class TimedValue:
 
     def __call__(self):
         time_passed = datetime.datetime.utcnow() - self._started_at
-        if time_passed.total_seconds() > 6:
-            return False
+        if time_passed.total_seconds() > 20:
+            return True
         return True
 
 class BSP:
@@ -156,10 +156,8 @@ for normal in orc.normals:
     newNormals.append(normalTuple)
 # TODO: need to add here: trying a few origins for each plane - need to add measurements of boundries of the model
 # on a given vector direction so we can adjust the offset of the surface to be between the boundries
-orig = (0.2, 0, 0)
 mesh = meshcut.TriangleMesh(tuple(obj.vertices), tuple(obj.triangles))
 mesh.normals = obj.normals
-i = 0
 orig = [0, 0, 0]
 #if (meshcut.atMeshGoal(mesh, 2, 2, 2) == True):
 #    print ("original model at goal")
@@ -168,7 +166,7 @@ orig = [0, 0, 0]
 
 #print("volume of the original model" , meshcut.VolumeOfMesh(mesh))
 for normal in newNormals:
-    for i in range(10):
+        """for i in range(10):
         if normal[0]>0:
             orig[0] = orig[0] + 0.05
         elif normal[0]<0:
@@ -182,7 +180,7 @@ for normal in newNormals:
         if normal[2]>0:
             orig[2] = orig[2] + 0.05
         elif normal[2]<0:
-            orig[2] = orig[2] - 0.05
+            orig[2] = orig[2] - 0.05"""
         S = meshcut.calculateSPotential(obj.normals, normal)
         plane = meshcut.Plane(tuple(orig), normal)
         modelA, modelB = meshcut.split_model(mesh, plane, S)
@@ -200,6 +198,7 @@ for normal in newNormals:
             for i in range(len(triangle)):
                 glNormal3fv(modelA.normals[triangle[i]])
                 glVertex3fv(modelA.verts[triangle[i]])
+
         glEnd()
         glDisable(GL_TEXTURE_2D)
         glEndList()
@@ -250,6 +249,57 @@ for normal in newNormals:
             glRotate(rx, 0, 1, 0)
             pygame.draw.ellipse(srf, RED, [300, 10, 50, 20])
             glCallList(modelA.gl_list)
+            pygame.display.flip()
+        
+        modelB.gl_list = glGenLists(1)
+        
+        glNewList(modelB.gl_list, GL_COMPILE)
+        glEnable(GL_TEXTURE_2D)
+        glFrontFace(GL_CCW)
+        glBegin(GL_POLYGON)
+
+        for triangle in modelB.tris:
+            for i in range(len(triangle)):
+                glNormal3fv(modelB.normals[triangle[i]])
+                glVertex3fv(modelB.verts[triangle[i]])
+
+        glEnd()
+        glDisable(GL_TEXTURE_2D)
+        glEndList()
+        value = TimedValue()
+        while value():
+            clock.tick(30)
+            for e in pygame.event.get():
+                if e.type == QUIT:
+                    sys.exit()
+                elif e.type == KEYDOWN and e.key == K_ESCAPE:
+                    sys.exit()
+                elif e.type == MOUSEBUTTONDOWN:
+                    if e.button == 4: zpos = max(1, zpos-1)
+                    elif e.button == 5: zpos += 1
+                    elif e.button == 1: rotate = True
+                    elif e.button == 3: move = True
+                elif e.type == MOUSEBUTTONUP:
+                    if e.button == 1: rotate = False
+                    elif e.button == 3: move = False
+                elif e.type == MOUSEMOTION:
+                    i, j = e.rel
+                    if rotate:
+                        rx += i
+                        ry += j
+                    if move:
+                        tx += i
+                        ty -= j
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            glLoadIdentity()
+
+            # RENDER OBJECT
+            glTranslate(tx/20., ty/20., - zpos)
+            glRotate(ry, 1, 0, 0)
+            glRotate(rx, 0, 1, 0)
+            pygame.draw.ellipse(srf, RED, [300, 10, 50, 20])
+            glCallList(modelB.gl_list)
             pygame.display.flip()
     
     ##points = [[p[0][1], p[0][2]] for p in P]
