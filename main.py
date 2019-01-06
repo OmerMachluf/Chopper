@@ -27,6 +27,12 @@ class TimedValue:
             return False
         return True
 
+class BSP:
+    #BSP: [mesh1, mesh2, ...] - each mesh is a part of the model (all meshes together creates the whole model)
+    def __init__(self, Object):
+        self.meshs = []
+        self.Object = Object
+
 
 class OBJ:
     def __init__(self, filename, swapyz=False):
@@ -153,6 +159,12 @@ for normal in orc.normals:
 orig = (0.2, 0, 0)
 mesh = meshcut.TriangleMesh(tuple(obj.vertices), tuple(obj.triangles))
 mesh.normals = obj.normals
+#if (meshcut.atMeshGoal(mesh, 2, 2, 2) == True):
+#    print ("original model at goal")
+#else:
+#    print ("original model not at goal")
+
+print("volume of the original model" , meshcut.VolumeOfMesh(mesh))
 for normal in newNormals:
     plane = meshcut.Plane(orig, normal)
     modelA, modelB = meshcut.split_model(mesh, plane)
@@ -160,6 +172,17 @@ for normal in newNormals:
         continue
     ## Add relevant normals -> assert same number as vertices and add the right ones.
     ## Add run by vertices
+    #if (meshcut.atMeshGoal(modelA, 10, 10, 10) == True):
+    #    print ("model A at goal")
+    #else:
+    #    print ("model A not at goal")
+    #if (meshcut.atMeshGoal(modelB, 1, 1, 1) == True):
+    #    print ("model B at goal")
+    #else:
+    #    print ("model B not at goal")
+    print("volume of A: " , meshcut.VolumeOfMesh(modelA))
+    print("volume of B: " , meshcut.VolumeOfMesh(modelB))
+
     modelA.gl_list = glGenLists(1)
     glNewList(modelA.gl_list, GL_COMPILE)
     glEnable(GL_TEXTURE_2D)
