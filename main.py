@@ -164,7 +164,7 @@ mesh.normals = obj.normals
 #else:
 #    print ("original model not at goal")
 
-print("volume of the original model" , meshcut.VolumeOfMesh(mesh))
+#print("volume of the original model" , meshcut.VolumeOfMesh(mesh))
 for normal in newNormals:
     plane = meshcut.Plane(orig, normal)
     modelA, modelB = meshcut.split_model(mesh, plane)
