@@ -153,74 +153,92 @@ for normal in orc.normals:
 orig = (0.2, 0, 0)
 mesh = meshcut.TriangleMesh(tuple(obj.vertices), tuple(obj.triangles))
 mesh.normals = obj.normals
+i = 0
+orig = [0, 0, 0]
 for normal in newNormals:
-    plane = meshcut.Plane(orig, normal)
-    modelA, modelB = meshcut.split_model(mesh, plane)
-    if (modelA is None or modelB is None):
-        continue
-    ## Add relevant normals -> assert same number as vertices and add the right ones.
-    ## Add run by vertices
-    modelA.gl_list = glGenLists(1)
-    glNewList(modelA.gl_list, GL_COMPILE)
-    glEnable(GL_TEXTURE_2D)
-    glFrontFace(GL_CCW)
-    glBegin(GL_POLYGON)
-    
-    for triangle in modelA.tris:
-        for i in range(len(triangle)):
-            glNormal3fv(modelA.normals[triangle[i]])
-            glVertex3fv(modelA.verts[triangle[i]])
-    glEnd()
-    glDisable(GL_TEXTURE_2D)
-    glEndList()   
-    
-    ### Here will start the part of new model generation
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    width, height = viewport
-    gluPerspective(90.0, width/float(height), 1, 100.0)
-    glEnable(GL_DEPTH_TEST)
-    glMatrixMode(GL_MODELVIEW)
-    
-    rx, ry = (0,0)
-    tx, ty = (0,0)
-    zpos = 5
-    rotate = move = False
-    value = TimedValue()    
-    while value():
-        clock.tick(30)
-        for e in pygame.event.get():
-            if e.type == QUIT:
-                sys.exit()
-            elif e.type == KEYDOWN and e.key == K_ESCAPE:
-                sys.exit()
-            elif e.type == MOUSEBUTTONDOWN:
-                if e.button == 4: zpos = max(1, zpos-1)
-                elif e.button == 5: zpos += 1
-                elif e.button == 1: rotate = True
-                elif e.button == 3: move = True
-            elif e.type == MOUSEBUTTONUP:
-                if e.button == 1: rotate = False
-                elif e.button == 3: move = False
-            elif e.type == MOUSEMOTION:
-                i, j = e.rel
-                if rotate:
-                    rx += i
-                    ry += j
-                if move:
-                    tx += i
-                    ty -= j
-    
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    for i in range(10):
+        if normal[0]>0:
+            orig[0] = orig[0] + 0.05
+        elif normal[0]<0:
+            orig[0] = orig[0] - 0.05
+
+        if normal[1]>0:
+            orig[1] = orig[1] + 0.05
+        elif normal[1]<0:
+            orig[1] = orig[1] - 0.05
+
+        if normal[2]>0:
+            orig[2] = orig[2] + 0.05
+        elif normal[2]<0:
+            orig[2] = orig[2] - 0.05
+        S = meshcut.calculateSPotential(obj.normals, normal)
+        plane = meshcut.Plane(tuple(orig), normal)
+        modelA, modelB = meshcut.split_model(mesh, plane, S)
+        if (modelA is None or modelB is None):
+            continue
+        ## Add relevant normals -> assert same number as vertices and add the right ones.
+        ## Add run by vertices
+        modelA.gl_list = glGenLists(1)
+        glNewList(modelA.gl_list, GL_COMPILE)
+        glEnable(GL_TEXTURE_2D)
+        glFrontFace(GL_CCW)
+        glBegin(GL_POLYGON)
+        
+        for triangle in modelA.tris:
+            for i in range(len(triangle)):
+                glNormal3fv(modelA.normals[triangle[i]])
+                glVertex3fv(modelA.verts[triangle[i]])
+        glEnd()
+        glDisable(GL_TEXTURE_2D)
+        glEndList()   
+        
+        ### Here will start the part of new model generation
+        glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-    
-        # RENDER OBJECT
-        glTranslate(tx/20., ty/20., - zpos)
-        glRotate(ry, 1, 0, 0)
-        glRotate(rx, 0, 1, 0)
-        pygame.draw.ellipse(srf, RED, [300, 10, 50, 20]) 
-        glCallList(modelA.gl_list)
-        pygame.display.flip()
+        width, height = viewport
+        gluPerspective(90.0, width/float(height), 1, 100.0)
+        glEnable(GL_DEPTH_TEST)
+        glMatrixMode(GL_MODELVIEW)
+        
+        rx, ry = (0,0)
+        tx, ty = (0,0)
+        zpos = 5
+        rotate = move = False
+        value = TimedValue()    
+        while value():
+            clock.tick(30)
+            for e in pygame.event.get():
+                if e.type == QUIT:
+                    sys.exit()
+                elif e.type == KEYDOWN and e.key == K_ESCAPE:
+                    sys.exit()
+                elif e.type == MOUSEBUTTONDOWN:
+                    if e.button == 4: zpos = max(1, zpos-1)
+                    elif e.button == 5: zpos += 1
+                    elif e.button == 1: rotate = True
+                    elif e.button == 3: move = True
+                elif e.type == MOUSEBUTTONUP:
+                    if e.button == 1: rotate = False
+                    elif e.button == 3: move = False
+                elif e.type == MOUSEMOTION:
+                    i, j = e.rel
+                    if rotate:
+                        rx += i
+                        ry += j
+                    if move:
+                        tx += i
+                        ty -= j
+        
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            glLoadIdentity()
+        
+            # RENDER OBJECT
+            glTranslate(tx/20., ty/20., - zpos)
+            glRotate(ry, 1, 0, 0)
+            glRotate(rx, 0, 1, 0)
+            pygame.draw.ellipse(srf, RED, [300, 10, 50, 20]) 
+            glCallList(modelA.gl_list)
+            pygame.display.flip()
     
     ##points = [[p[0][1], p[0][2]] for p in P]
    # pygame.draw.line(srf,RED, [0,0], [5500,5000],5)

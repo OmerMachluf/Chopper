@@ -22,6 +22,13 @@ def make_edge(v1, v2):
     tupsorted = tuple(sorted((v1, v2)))
     return tupsorted
 
+def calculateSPotential(normals, normalT, THOLD = 0.95):
+    S = []
+    for i in range(len(normals)):
+        dotProduct = normalT[0] * normals[i][0] + normalT[1] * normals[i][1] + normalT[2] * normals[i][2]
+        if dotProduct > 0.95:
+            S.append(i)
+    return S
 
 class TriangleMesh(object):
     def __init__(self, verts, tris):
@@ -109,6 +116,23 @@ def triangle_intersects_plane(mesh, tid, plane):
 
 
 # ---- Planar cross-section
+def triangle_contains_point(mesh, triangle, minX, maxX, minY, maxY, minZ, maxZ, point):
+    if minX == maxX:
+        if point[0] != minX:
+            return False
+        if point[1] > minY and point[1] < maxY and point[2] > minZ and point[2] < maxZ:
+            return True
+    if minY == maxY: 
+        if point[1] != minY:
+            return False
+        if point[0] > minX and point[0] < maxX and point[2] > minZ and point[2] < maxZ:
+            return True
+    if minZ == maxYZ:
+        if point[2] != minZ:
+            return False
+        if point[0] > minX and point[0] < maxX and point[1] > minY and point[1] < maxY:
+            return True
+    return False
 
 INTERSECT_EDGE = 0
 INTERSECT_VERTEX = 1
@@ -119,8 +143,12 @@ def distance(vertexA, vertexC, vertexD):
     distanceAD = math.sqrt(math.pow(distAD[0], 2) + math.pow(distAD[1], 2) + math.pow(distAD[2], 2))
     return distanceAC < distanceAD
 
-def split_model(mesh, plane):
-    xBoundriesA = [0, 0]
+def split_model(mesh, plane, S, fragThreas = 0.1):
+    S2 = []
+    for vertex in S:
+        dist = point_to_plane_dist(mesh.verts[vertex-1], plane)
+        if dist < fragThreas:
+            S2.append(vertex)
     yBoundriesA = [0, 0]
     zBoundriesA = [0, 0]
     xBoundriesB = [0, 0]
@@ -143,7 +171,7 @@ def split_model(mesh, plane):
     indexB = 0
     # iterate through all intersections
     first = True
-    for intersections in allIntersections:
+    for intersections in allIntersections:            
         groupvertex = []
         # Starting with handling only 2 edges intersection. figuring out what do with vertexes later.
         if intersections[0][0] == INTERSECT_EDGE and intersections[1][0] == INTERSECT_EDGE:
@@ -164,6 +192,7 @@ def split_model(mesh, plane):
                 groupvertex.append(edge1[1])
         else:
             continue
+        
         tri = mesh.triangles_for_vert(solovertex) # get triangles 
         trie0 = mesh.triangles_for_edge(edge0) # get the triangles for cutted edge 0
         trie1 = mesh.triangles_for_edge(edge1) # get the triangles for cutted ddge 1
@@ -175,8 +204,47 @@ def split_model(mesh, plane):
                     break
             if found != None:
                 break
+        
         oldtriangles[found] = 1
-
+        tring = mesh.tris[found-1]
+        ## Check if any point ofdffn S is fragile
+        line = (intersections[0][1][0] - intersections[1][1][0], intersections[0][1][1] - intersections[1][1][1], intersections[0][1][2] - intersections[1][1][2])
+        if (mesh.verts[tring[0]-1][0] == mesh.verts[tring[1]-1][0] and mesh.verts[tring[0]-1][0] == mesh.verts[tring[2]-1][0]): 
+            minX = maxX = mesh.verts[tring[0]-1][0]
+            minY = min(mesh.verts[tring[0]-1][1], mesh.verts[tring[1]-1][1], mesh.verts[tring[2]-1][1])
+            maxY = max(mesh.verts[tring[0]-1][1], mesh.verts[tring[1]-1][1], mesh.verts[tring[2]-1][1])
+            minZ = min(mesh.verts[tring[0]-1][2], mesh.verts[tring[1]-1][2], mesh.verts[tring[2]-1][2])
+            maxZ = max(mesh.verts[tring[0]-1][2], mesh.verts[tring[1]-1][2], mesh.verts[tring[2]-1][2])
+        if (mesh.verts[tring[0]-1][1] == mesh.verts[tring[1]-1][1] and mesh.verts[tring[0]-1][10] == mesh.verts[tring[2]-1][1]): 
+            minY = maxY = mesh.verts[tring[0]-1][1]
+            minX = min(mesh.verts[tring[0]-1][0], mesh.verts[tring[1]-1][0], mesh.verts[tring[2]-1][0])
+            maxX = max(mesh.verts[tring[0]-1][0], mesh.verts[tring[1]-1][0], mesh.verts[tring[2]-1][0])
+            minZ = min(mesh.verts[tring[0]-1][2], mesh.verts[tring[1]-1][2], mesh.verts[tring[2]-1][2])
+            maxZ = max(mesh.verts[tring[0]-1][2], mesh.verts[tring[1]-1][2], mesh.verts[tring[2]-1][2])
+        if (mesh.verts[tring[0]-1][2] == mesh.verts[tring[1]-1][2] and mesh.verts[tring[0]-1][2] == mesh.verts[tring[2]-1][2]): 
+            minZ = maxZ = mesh.verts[tring[0]-1][2]
+            minX = min(mesh.verts[tring[0]-1][0], mesh.verts[tring[1]-1][0], mesh.verts[tring[2]-1][0])
+            maxX = max(mesh.verts[tring[0]-1][0], mesh.verts[tring[1]-1][0], mesh.verts[tring[2]-1][0])
+            minY = min(mesh.verts[tring[0]-1][1], mesh.verts[tring[1]-1][1], mesh.verts[tring[2]-1][1])
+            maxY = max(mesh.verts[tring[0]-1][1], mesh.verts[tring[1]-1][1], mesh.verts[tring[2]-1][1])
+        
+        for s in S2:
+            vert = mesh.verts[s-1]
+            a = (vert[0] - intersections[0][1][0]) / line[0]
+            b = (vert[1] - intersections[0][1][1]) / line[1]
+            xA = intersections[0][1][0] + a * line[0]
+            yA = intersections[0][1][1] + a * line[1]
+            zA = intersections[0][1][2] + a * line[2]
+            xB = intersections[0][1][0] + b * line[0]
+            yB = intersections[0][1][1] + b * line[1]
+            zB = intersections[0][1][2] + b * line[2]
+            if vert[0] ==  xA and (vert[1] ==  yA or vert[2] == zA):
+                pointonline = (xA, yA, zA)
+            elif vert[0] ==  xB and (vert[1] ==  yB or vert[2] == zB):
+                pointonline = (xB, yB, zB)
+            if triangle_contains_point(mesh, tring, minX, maxX, minY, maxY, minZ, maxZ, pointonline):
+                return (None, None)
+        ### if we got here then no point is fragile.
         if (first):
             first = False
             xDist = pow(intersections[0][1][0] - intersections[1][1][0], 2)
@@ -192,20 +260,6 @@ def split_model(mesh, plane):
             oldvertices[groupvertex[0]] = 1
             oldvertices[groupvertex[1]] = 1
             if mesh.verts[solovertex-1][compareX] > intersections[0][1][compareX]:
-                if mesh.verts[solovertice-1][0] > 0:
-                    xBoundriesA = (0, mesh.verts[solovertice-1][0])
-                if mesh.verts[solovertice-1][1] > 0:
-                    yBoundriesA = (0, mesh.verts[solovertice-1][1])
-                if mesh.verts[solovertice-1][2] > 0:
-                    zBoundriesA = (0, mesh.verts[solovertice-1][2])
-
-                if mesh.verts[solovertice-1][0] > 0:
-                    xBoundriesA = (0, mesh.verts[solovertice-1][0])
-                if mesh.verts[solovertice-1][1] > 0:
-                    yBoundriesA = (0, mesh.verts[solovertice-1][1])
-                if mesh.verts[solovertice-1][2] > 0:
-                    zBoundriesA = (0, mesh.verts[solovertice-1][2])
-
                 #calcs the boundries
                 xBoundriesA[0] = min(mesh.verts[solovertex-1][0], intersections[0][1][0], intersections[1][1][0])
                 xBoundriesA[1] = max(mesh.verts[solovertex-1][0], intersections[0][1][0], intersections[1][1][0])
@@ -316,7 +370,7 @@ def split_model(mesh, plane):
                     newverticesindexsB[solovertex] = keySolo
 
                      #calcs the boundries
-                    xBoundriesB[0] = min(mesh.verts[solovertex-1][0], )
+                    xBoundriesB[0] = min(mesh.verts[solovertex-1][0], 1)
                     xBoundriesB[1] = max(mesh.verts[solovertex-1][0], mesh.verts[groupvertex[1]-1][0], intersections[0][1][0], intersections[1][1][0])
                     yBoundriesB[0] = min(mesh.verts[solovertex-1][1], mesh.verts[groupvertex[1]-1][1], intersections[0][1][1], intersections[1][1][1])
                     yBoundriesB[1] = max(mesh.verts[groupvertex[0]-1][1], mesh.verts[groupvertex[1]-1][1], intersections[0][1][1], intersections[1][1][1])
