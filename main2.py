@@ -23,7 +23,7 @@ class TimedValue:
 
     def __call__(self):
         time_passed = datetime.datetime.utcnow() - self._started_at
-        if time_passed.total_seconds() > 6:
+        if time_passed.total_seconds() > 8:
             return False
         return True
 
@@ -123,7 +123,7 @@ def MTL(filename):
             mtl[values[0]] = list(map(float, values[1:]))
     return contents
 
-def EvalCuts(mesh, T2, P, newNormals, obj, counter = 0):
+def EvalCuts(mesh, T2, P, newNormals, obj, beamCounter, counter = 0):
     resultSet = []
     orig = [0, 0, 0]
     for normal in newNormals:
@@ -146,7 +146,7 @@ def EvalCuts(mesh, T2, P, newNormals, obj, counter = 0):
             S = meshcut.calculateSPotential(P.normals, normal)
             plane = meshcut.Plane(tuple(orig), normal)
             counter = counter + 1
-            modelA, modelB = meshcut.split_model(P, plane, S, counter)
+            modelA, modelB = meshcut.split_model(P, plane, S, beamCounter, counter)
             if (modelA != None and modelB != None):
                 bspAfterSplit = BSP(mesh)
                 meshsAfterSplit = []
@@ -155,7 +155,24 @@ def EvalCuts(mesh, T2, P, newNormals, obj, counter = 0):
                 meshsAfterSplit.append(modelB)
                 bspAfterSplit.meshs = meshsAfterSplit
                 resultSet.append(bspAfterSplit)
+                if (modelA.boundaries == False or modelB.boundaries == False):
+                    print("false boundaries")
     return resultSet
+
+def minSizes(BSPs, x_goal, y_goal, z_goal):
+    minDiff = meshcut.calcDiffGoal(BSPs[0], x_goal, y_goal, z_goal)
+    minBsp = BSPs[0]
+    index = 0
+    for i in range(len(BSPs)):
+        diff = meshcut.calcDiffGoal(BSPs[i], x_goal, y_goal, z_goal)
+        if (diff < minDiff):
+            minDiff = diff
+            minBsp = BSPs[i]
+            index = i
+
+    BSPs.pop(index)
+    return minBsp
+
 
 def HighestRanked(BSPs, mesh):
     maxRank = meshcut.f_util(BSPs[0], mesh)
@@ -175,19 +192,21 @@ def beamSearch(mesh, b, x_goal, y_goal, z_goal, newNormals, obj):
     bsp = BSP(mesh)
     bsp.meshs.append(mesh)
     currentBSPs.append(bsp)
-    counter = 0
+    beamCounter = 0
     while not (meshcut.allAtGoal(currentBSPs, x_goal, y_goal, z_goal)):
         newBSPs = []
-        notAtGoalSet = meshcut.notAtGoalSet(currentBSPs, x_goal, y_goal, z_goal)
-        for i in range(len(notAtGoalSet)):
+        notAtGoalSet, currentBSPs = meshcut.notAtGoalSet(currentBSPs, x_goal, y_goal, z_goal)
+        for bsp in notAtGoalSet:
             # T2 is meshs of the bsp T without P(the largest part in T)
-            (P, T2) = meshcut.largestPart(notAtGoalSet[i]) #p is a mesh
-            currentBSPs.pop(i)
-            counter = counter + 1
-            newBSPs = newBSPs + EvalCuts(mesh, T2, P, newNormals, obj)
-        while(len(currentBSPs) < b):
-            currentBSPs.append(HighestRanked(newBSPs, mesh))
-    return HighestRanked(currentBSPs, mesh)
+            (P, T2) = meshcut.largestPart(bsp, x_goal, y_goal, z_goal) #p is a mesh
+            beamCounter = beamCounter + 1
+            newBSPs = newBSPs + EvalCuts(mesh, T2, P, newNormals, obj, beamCounter)
+        while(len(newBSPs) > 0 and len(currentBSPs) < b):
+            currentBSPs.append(minSizes(newBSPs, x_goal, y_goal, z_goal))
+    if (len(currentBSPs) > 0):
+        return HighestRanked(currentBSPs, mesh)
+    else:
+        return mesh
 
 #main:
 INTERSECT_EDGE = 0
@@ -228,3 +247,70 @@ mesh.normals = obj.normals
 
 choppedBsp = beamSearch(mesh, b, X_GOAL, Y_GOAL, Z_GOAL, newNormals, obj)
 print(choppedBsp)
+
+for mesh in choppedBsp.meshs:
+    mesh.gl_list = glGenLists(1)
+    glNewList(mesh.gl_list, GL_COMPILE)
+    glEnable(GL_TEXTURE_2D)
+    glFrontFace(GL_CCW)
+    glBegin(GL_POLYGON)
+
+    for triangle in mesh.tris:
+        for i in range(len(triangle)):
+            glNormal3fv(mesh.normals[triangle[i]])
+            glVertex3fv(mesh.verts[triangle[i]])
+    glEnd()
+    glDisable(GL_TEXTURE_2D)
+    glEndList()
+    glMatrixMode(GL_PROJECTION)
+    glLoadIdentity()
+    width, height = viewport
+    gluPerspective(90.0, width / float(height), 1, 100.0)
+    glEnable(GL_DEPTH_TEST)
+    glMatrixMode(GL_MODELVIEW)
+
+    rx, ry = (0, 0)
+    tx, ty = (0, 0)
+    zpos = 5
+    rotate = move = False
+    value = TimedValue()
+    while value():
+        clock.tick(30)
+        for e in pygame.event.get():
+            if e.type == QUIT:
+                sys.exit()
+            elif e.type == KEYDOWN and e.key == K_ESCAPE:
+                sys.exit()
+            elif e.type == MOUSEBUTTONDOWN:
+                if e.button == 4:
+                    zpos = max(1, zpos - 1)
+                elif e.button == 5:
+                    zpos += 1
+                elif e.button == 1:
+                    rotate = True
+                elif e.button == 3:
+                    move = True
+            elif e.type == MOUSEBUTTONUP:
+                if e.button == 1:
+                    rotate = False
+                elif e.button == 3:
+                    move = False
+            elif e.type == MOUSEMOTION:
+                i, j = e.rel
+                if rotate:
+                    rx += i
+                    ry += j
+                if move:
+                    tx += i
+                    ty -= j
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glLoadIdentity()
+
+        # RENDER OBJECT
+        glTranslate(tx / 20., ty / 20., - zpos)
+        glRotate(ry, 1, 0, 0)
+        glRotate(rx, 0, 1, 0)
+        pygame.draw.ellipse(srf, RED, [300, 10, 50, 20])
+        glCallList(mesh.gl_list)
+        pygame.display.flip()

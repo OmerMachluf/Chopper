@@ -183,7 +183,7 @@ for normal in newNormals:
             orig[2] = orig[2] - 0.05"""
         S = meshcut.calculateSPotential(obj.normals, normal)
         plane = meshcut.Plane(tuple(orig), normal)
-        modelA, modelB = meshcut.split_model(mesh, plane, S)
+        modelA, modelB = meshcut.split_model(mesh, plane, S, 1, 1)
         if (modelA is None or modelB is None):
             continue
         ## Add relevant normals -> assert same number as vertices and add the right ones.

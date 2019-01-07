@@ -144,9 +144,7 @@ def distance(vertexA, vertexC, vertexD):
     distanceAD = math.sqrt(math.pow(distAD[0], 2) + math.pow(distAD[1], 2) + math.pow(distAD[2], 2))
     return distanceAC < distanceAD
 
-def split_model(mesh, plane, S, counter, fragThreas = 0.1):
-    if (counter == 19):
-        print("bug")
+def split_model(mesh, plane, S, beamCounter, counter, fragThreas = 0.1):
     S2 = []
     for vertex in S:
         dist = point_to_plane_dist(mesh.verts[vertex-1], plane)
@@ -158,8 +156,6 @@ def split_model(mesh, plane, S, counter, fragThreas = 0.1):
     xBoundariesB = [0, 0]
     yBoundariesB = [0, 0]
     zBoundariesB = [0, 0]
-    if():
-        print("bug")
     allIntersections = cross_section_mesh(mesh, plane)
     if allIntersections == None or len(allIntersections) == 0:
         return (None, None)
@@ -178,10 +174,13 @@ def split_model(mesh, plane, S, counter, fragThreas = 0.1):
     # iterate through all intersections
     first = True
     interNumber = 0
+    vertexA = 0
+    vertexB = 0
     for intersections in allIntersections:
         interNumber = interNumber + 1
-        if (interNumber == 76 and counter == 19):
-            print("bug2")
+        #if (counter == 19 and beamCounter == 2 and interNumber == 76):
+        #    print("bug")
+
         groupvertex = []
         # Starting with handling only 2 edges intersection. figuring out what do with vertexes later.
         if intersections[0][0] == INTERSECT_EDGE and intersections[1][0] == INTERSECT_EDGE:
@@ -222,43 +221,6 @@ def split_model(mesh, plane, S, counter, fragThreas = 0.1):
         oldtriangles[found] = 1
         tring = mesh.tris[found-1]
         ## Check if any point ofdffn S is fragile
-        """line = (intersections[0][1][0] - intersections[1][1][0], intersections[0][1][1] - intersections[1][1][1], intersections[0][1][2] - intersections[1][1][2])
-        if (mesh.verts[tring[0]-1][0] == mesh.verts[tring[1]-1][0] and mesh.verts[tring[0]-1][0] == mesh.verts[tring[2]-1][0]):
-            minX = maxX = mesh.verts[tring[0]-1][0]
-            minY = min(mesh.verts[tring[0]-1][1], mesh.verts[tring[1]-1][1], mesh.verts[tring[2]-1][1])
-            maxY = max(mesh.verts[tring[0]-1][1], mesh.verts[tring[1]-1][1], mesh.verts[tring[2]-1][1])
-            minZ = min(mesh.verts[tring[0]-1][2], mesh.verts[tring[1]-1][2], mesh.verts[tring[2]-1][2])
-            maxZ = max(mesh.verts[tring[0]-1][2], mesh.verts[tring[1]-1][2], mesh.verts[tring[2]-1][2])
-        if (mesh.verts[tring[0]-1][1] == mesh.verts[tring[1]-1][1] and mesh.verts[tring[0]-1][10] == mesh.verts[tring[2]-1][1]):
-            minY = maxY = mesh.verts[tring[0]-1][1]
-            minX = min(mesh.verts[tring[0]-1][0], mesh.verts[tring[1]-1][0], mesh.verts[tring[2]-1][0])
-            maxX = max(mesh.verts[tring[0]-1][0], mesh.verts[tring[1]-1][0], mesh.verts[tring[2]-1][0])
-            minZ = min(mesh.verts[tring[0]-1][2], mesh.verts[tring[1]-1][2], mesh.verts[tring[2]-1][2])
-            maxZ = max(mesh.verts[tring[0]-1][2], mesh.verts[tring[1]-1][2], mesh.verts[tring[2]-1][2])
-        if (mesh.verts[tring[0]-1][2] == mesh.verts[tring[1]-1][2] and mesh.verts[tring[0]-1][2] == mesh.verts[tring[2]-1][2]):
-            minZ = maxZ = mesh.verts[tring[0]-1][2]
-            minX = min(mesh.verts[tring[0]-1][0], mesh.verts[tring[1]-1][0], mesh.verts[tring[2]-1][0])
-            maxX = max(mesh.verts[tring[0]-1][0], mesh.verts[tring[1]-1][0], mesh.verts[tring[2]-1][0])
-            minY = min(mesh.verts[tring[0]-1][1], mesh.verts[tring[1]-1][1], mesh.verts[tring[2]-1][1])
-            maxY = max(mesh.verts[tring[0]-1][1], mesh.verts[tring[1]-1][1], mesh.verts[tring[2]-1][1])
-
-        for s in S2:
-            vert = mesh.verts[s-1]
-            a = (vert[0] - intersections[0][1][0]) / line[0]
-            b = (vert[1] - intersections[0][1][1]) / line[1]
-            xA = intersections[0][1][0] + a * line[0]
-            yA = intersections[0][1][1] + a * line[1]
-            zA = intersections[0][1][2] + a * line[2]
-            xB = intersections[0][1][0] + b * line[0]
-            yB = intersections[0][1][1] + b * line[1]
-            zB = intersections[0][1][2] + b * line[2]
-            if vert[0] ==  xA and (vert[1] ==  yA or vert[2] == zA):
-                pointonline = (xA, yA, zA)
-            elif vert[0] ==  xB and (vert[1] ==  yB or vert[2] == zB):
-                pointonline = (xB, yB, zB)
-            if triangle_contains_point(mesh, tring, minX, maxX, minY, maxY, minZ, maxZ, pointonline):
-                return (None, None)
-        ### if we got here then no point is fragile."""
         if (first):
             first = False
             xDist = pow(intersections[0][1][0] - intersections[1][1][0], 2)
@@ -622,7 +584,96 @@ def compute_vertex_side(plane, vertex, vertexAside, dist_tol=1e-8):
     vertex = point_to_plane_dist(vertex, plane)
     return vertex * distA < 0
 
-def largestPart(BSP):
+def largestPart(BSP, x_goal, y_goal, z_goal):
+    largestMesh = None
+    largestDiff = 0
+    bspWithoutLargest = []
+
+    for mesh in BSP.meshs:
+        if (mesh.boundaries == False):
+            mesh.xBoundaries = [mesh.verts[0][0], mesh.verts[0][0]]
+            mesh.yBoundaries = [mesh.verts[0][1], mesh.verts[0][1]]
+            mesh.zBoundaries = [mesh.verts[0][2], mesh.verts[0][2]]
+            for vertices in mesh.verts:
+                if (vertices[0] < mesh.xBoundaries[0]):
+                    mesh.xBoundaries[0] = vertices[0]
+                elif (vertices[0] > mesh.xBoundaries[1]):
+                    mesh.xBoundaries[1] = vertices[0]
+                if (vertices[1] < mesh.yBoundaries[0]):
+                    mesh.yBoundaries[0] = vertices[1]
+                elif (vertices[1] > mesh.yBoundaries[1]):
+                    mesh.yBoundaries[1] = vertices[1]
+                if (vertices[2] < mesh.zBoundaries[0]):
+                    mesh.zBoundaries[0] = vertices[2]
+                elif (vertices[2] > mesh.zBoundaries[1]):
+                    mesh.zBoundaries[1] = vertices[2]
+        if math.fabs(mesh.xBoundaries[1] - mesh.xBoundaries[0]) > x_goal:
+            xDiff = math.fabs(mesh.xBoundaries[1] - mesh.xBoundaries[0]) - x_goal
+        else:
+            xDiff = 0
+        if math.fabs(mesh.yBoundaries[1] - mesh.yBoundaries[0]) > y_goal:
+            yDiff = math.fabs(mesh.yBoundaries[1] - mesh.yBoundaries[0]) - y_goal
+        else:
+            yDiff = 0
+        if math.fabs(mesh.zBoundaries[1] - mesh.zBoundaries[0]) > z_goal:
+            zDiff = math.fabs(mesh.zBoundaries[1] - mesh.zBoundaries[0]) - z_goal
+        else:
+            zDiff = 0
+        diff = max(xDiff, yDiff, zDiff)
+
+        if (diff > largestDiff):
+            if (largestMesh != None):
+                bspWithoutLargest.append(largestMesh)
+            largestDiff = diff
+            largestMesh = mesh
+        else:
+            bspWithoutLargest.append(mesh)
+    if (largestMesh == None): #should not happen
+        largestMesh = BSP.meshs[0]
+    return (largestMesh, bspWithoutLargest)
+
+def calcDiffGoal(BSP, x_goal, y_goal, z_goal):
+    maxDiff = 0
+    for mesh in BSP.meshs:
+        if (mesh.boundaries == False):
+            mesh.xBoundaries = [mesh.verts[0][0], mesh.verts[0][0]]
+            mesh.yBoundaries = [mesh.verts[0][1], mesh.verts[0][1]]
+            mesh.zBoundaries = [mesh.verts[0][2], mesh.verts[0][2]]
+            for vertices in mesh.verts:
+                if (vertices[0] < mesh.xBoundaries[0]):
+                    mesh.xBoundaries[0] = vertices[0]
+                elif (vertices[0] > mesh.xBoundaries[1]):
+                    mesh.xBoundaries[1] = vertices[0]
+                if (vertices[1] < mesh.yBoundaries[0]):
+                    mesh.yBoundaries[0] = vertices[1]
+                elif (vertices[1] > mesh.yBoundaries[1]):
+                    mesh.yBoundaries[1] = vertices[1]
+                if (vertices[2] < mesh.zBoundaries[0]):
+                    mesh.zBoundaries[0] = vertices[2]
+                elif (vertices[2] > mesh.zBoundaries[1]):
+                    mesh.zBoundaries[1] = vertices[2]
+        if math.fabs(mesh.xBoundaries[1] - mesh.xBoundaries[0]) > x_goal:
+            xDiff = math.fabs(mesh.xBoundaries[1] - mesh.xBoundaries[0]) - x_goal
+        else:
+            xDiff = 0
+        if math.fabs(mesh.yBoundaries[1] - mesh.yBoundaries[0]) > y_goal:
+            yDiff = math.fabs(mesh.yBoundaries[1] - mesh.yBoundaries[0]) - y_goal
+        else:
+            yDiff = 0
+        if math.fabs(mesh.zBoundaries[1] - mesh.zBoundaries[0]) > z_goal:
+            zDiff = math.fabs(mesh.zBoundaries[1] - mesh.zBoundaries[0]) - z_goal
+        else:
+            zDiff = 0
+
+        diff = max(xDiff, yDiff, zDiff)
+
+        if (diff > maxDiff):
+            maxDiff = diff
+
+    return maxDiff
+
+
+def largestPart2(BSP):
     largestMesh = None
     largestVolume = 0
     bspWithoutLargest = []
@@ -645,10 +696,13 @@ def allAtGoal(BSPs, x_goal, y_goal, z_goal):
 
 def notAtGoalSet(BSPs, x_goal, y_goal, z_goal):
     list = []
+    newBSPs = []
     for BSP in BSPs:
         if (atGoal(BSP, x_goal, y_goal, z_goal) == False):
             list.append(BSP)
-    return list
+        else:
+            newBSPs.append(BSP)
+    return (list, newBSPs)
 
 def atGoal(BSP, x_goal, y_goal, z_goal):
     #if (len(BSP.meshs) == 0):
