@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="91586921-9feb-4f3c-8c73-6da9ce75ad10" name="Default" comment="Merge branch 'master' of https://github.com/OmerMachluf/Chopper into geffen&#10;&#10;# Conflicts:&#10;#&#9;main.py&#10;#&#9;meshcut.py&#10;#&#9;meshcut.pyc">
+    <list default="true" id="91586921-9feb-4f3c-8c73-6da9ce75ad10" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change beforePath="$PROJECT_DIR$/main2.py" afterPath="$PROJECT_DIR$/main2.py" />
     </list>
@@ -14,11 +14,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="450">
-      <file leaf-file-name="meshcut.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="meshcut.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/meshcut.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-7575">
-              <caret line="672" column="0" lean-forward="false" selection-start-line="672" selection-start-column="0" selection-end-line="672" selection-end-column="0" />
+            <state relative-caret-position="137">
+              <caret line="80" column="0" lean-forward="false" selection-start-line="80" selection-start-column="0" selection-end-line="80" selection-end-column="0" />
               <folding>
                 <element signature="e#6372#7186#0" expanded="false" />
                 <element signature="e#31634#32283#0" expanded="false" />
@@ -57,15 +57,15 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="main2.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="main2.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/main2.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="199">
-              <caret line="247" column="25" lean-forward="false" selection-start-line="247" selection-start-column="25" selection-end-line="247" selection-end-column="25" />
+            <state relative-caret-position="650">
+              <caret line="26" column="30" lean-forward="true" selection-start-line="26" selection-start-column="30" selection-end-line="26" selection-end-column="30" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
-                <element signature="e#877#3114#0" expanded="false" />
-                <element signature="e#3139#4301#0" expanded="false" />
+                <element signature="e#878#3115#0" expanded="false" />
+                <element signature="e#3140#4302#0" expanded="false" />
               </folding>
             </state>
           </provider>
@@ -107,11 +107,11 @@
       <find>PRINT</find>
       <find>boundaries</find>
       <find>boundaries == true</find>
-      <find>largestpart</find>
       <find>.gl_</find>
       <find>mesh</find>
       <find>modelA</find>
       <find>TimedValue</find>
+      <find>largestpart</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -280,7 +280,14 @@
       <option name="project" value="LOCAL" />
       <updated>1546883243659</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="working2">
+      <created>1546883853092</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1546883853092</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -312,7 +319,8 @@
     <MESSAGE value="add functions" />
     <MESSAGE value="Merge branch 'master' of https://github.com/OmerMachluf/Chopper into geffen&#10;&#10;# Conflicts:&#10;#&#9;main.py&#10;#&#9;meshcut.py&#10;#&#9;meshcut.pyc" />
     <MESSAGE value="working!" />
-    <option name="LAST_COMMIT_MESSAGE" value="working!" />
+    <MESSAGE value="working2" />
+    <option name="LAST_COMMIT_MESSAGE" value="working2" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -333,19 +341,19 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/main2.py</url>
-          <line>195</line>
-          <option name="timeStamp" value="113" />
+          <line>206</line>
+          <option name="timeStamp" value="135" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/main2.py</url>
-          <line>206</line>
-          <option name="timeStamp" value="135" />
+          <line>248</line>
+          <option name="timeStamp" value="137" />
         </line-breakpoint>
       </breakpoints>
       <breakpoints-dialog>
         <breakpoints-dialog />
       </breakpoints-dialog>
-      <option name="time" value="137" />
+      <option name="time" value="138" />
     </breakpoint-manager>
     <watches-manager />
   </component>
@@ -445,22 +453,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/main2.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="199">
-          <caret line="247" column="25" lean-forward="false" selection-start-line="247" selection-start-column="25" selection-end-line="247" selection-end-column="25" />
-          <folding>
-            <element signature="e#0#10#0" expanded="true" />
-            <element signature="e#877#3114#0" expanded="false" />
-            <element signature="e#3139#4301#0" expanded="false" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/meshcut.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-7575">
-          <caret line="672" column="0" lean-forward="false" selection-start-line="672" selection-start-column="0" selection-end-line="672" selection-end-column="0" />
+        <state relative-caret-position="137">
+          <caret line="80" column="0" lean-forward="false" selection-start-line="80" selection-start-column="0" selection-end-line="80" selection-end-column="0" />
           <folding>
             <element signature="e#6372#7186#0" expanded="false" />
             <element signature="e#31634#32283#0" expanded="false" />
@@ -469,6 +465,18 @@
             <element signature="e#48227#48236#0" expanded="false" />
             <element signature="e#48303#48736#0" expanded="false" />
             <element signature="e#48767#49353#0" expanded="false" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/main2.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="650">
+          <caret line="26" column="30" lean-forward="true" selection-start-line="26" selection-start-column="30" selection-end-line="26" selection-end-column="30" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+            <element signature="e#878#3115#0" expanded="false" />
+            <element signature="e#3140#4302#0" expanded="false" />
           </folding>
         </state>
       </provider>

@@ -24,7 +24,7 @@ class TimedValue:
 
     def __call__(self):
         time_passed = datetime.datetime.utcnow() - self._started_at
-        if time_passed.total_seconds() > 8:
+        if time_passed.total_seconds() > 14:
             return False
         return True
 
@@ -128,7 +128,7 @@ def EvalCuts(mesh, T2, P, newNormals, obj, beamCounter, counter = 0):
     resultSet = []
     orig = [0, 0, 0]
     for normal in newNormals:
-        for i in range(2):
+        for i in range(5):
             if normal[0] > 0:
                 orig[0] = orig[0] + 0.05
             elif normal[0] < 0:
@@ -251,13 +251,14 @@ for mesh in choppedBsp.meshs:
     glNewList(mesh.gl_list, GL_COMPILE)
     glEnable(GL_TEXTURE_2D)
     glFrontFace(GL_CCW)
-    glBegin(GL_POLYGON)
+
 
     for triangle in mesh.tris:
+        glBegin(GL_POLYGON)
         for i in range(len(triangle)):
             glNormal3fv(mesh.normals[triangle[i]])
             glVertex3fv(mesh.verts[triangle[i]])
-    glEnd()
+        glEnd()
     glDisable(GL_TEXTURE_2D)
     glEndList()
     glMatrixMode(GL_PROJECTION)
