@@ -75,10 +75,7 @@ class TriangleMesh(object):
                 self.tris_to_edges[tid] = tuple(tri_edges)
         
         # Sanity check : max 2 faces per edge
-        for e, tris in self.edges_to_tris.items():
-            if isinstance(tris, tuple):
-                assert len(tris) <= 2
-
+		
     def edges_for_triangle(self, tidx):
         """Returns the edges forming triangle with given index"""
         return self.tris_to_edges[tidx]
@@ -157,7 +154,12 @@ INTERSECT_VERTEX = 1
 def calculateArea(A, B, C):
     AB = (A[0] - B[0], A[1]-B[1], A[2]-B[2])
     AC = (A[0] - C[0], A[1]-C[1], A[2]-C[2])
-    nv = normalise(np.cross(AB, AC))
+    if AB == (0,0,0) or AC==(0,0,0):
+        return -1
+    if AB == AC:
+        return -2
+    nv = np.cross(AB, AC)
+    nv = math.pow(nv[0], 2) + math.pow(nv[1], 2) + math.pow(nv[2], 2) / math.sqrt(math.pow(nv[0], 2) + math.pow(nv[1], 2) + math.pow(nv[2], 2))
     return nv / 2
 
 def distance(vertexA, vertexC, vertexD):
@@ -185,7 +187,7 @@ def UpdateNewVectorsForSolo(mesh, newvectors, solovertex, intersection1, interse
     for triangle in tris:
         if triangle == oldtriangle:
             continue
-        triangleA = mesh.tris[triangle-1]
+        triangleA = mesh.tris[triangle]
         curr =  TriangleNormal(mesh.verts[triangleA[0]-1], mesh.verts[triangleA[1]-1], mesh.verts[triangleA[2]-1])
         solonormal = (solonormal[0]+curr[0], solonormal[1]+curr[1], solonormal[2]+curr[2])
     if updatesolo:
@@ -193,6 +195,87 @@ def UpdateNewVectorsForSolo(mesh, newvectors, solovertex, intersection1, interse
     newvectors.append(normalise(newtrisNormal))
     newvectors.append(normalise(newtrisNormal))
     return newvectors
+    
+def IsFragilePoint(mesh, triangle, S2, intersectionPA, intersectionPB):
+    line = (intersectionPA[0] - intersectionPB[0], intersectionPA[1] - intersectionPB[1], intersectionPA[2] - intersectionPB[2])
+    a = b = None
+    for s in S2:
+        vert = mesh.verts[s]
+        if (line[0] != 0):
+            a = (vert[0] - intersectionPA[0]) / line[0]
+            if line[1] != 0:
+                b = (vert[1] - intersectionPA[1]) / line[1]
+        else:
+            if (line[1] != 0):
+                a = (vert[1] - intersectionPA[1]) / line[1]
+                if (line[2] != 0):
+                    b = (vert[2] - intersectionPA[2]) / line[2]
+                else:
+                    b = a
+            else:
+                if (line[2] != 0):
+                    a = b = (vert[2] - intersectionPA[2]) / line[2] 
+        if (a != None and b != None):           
+            xA = intersectionPA[0] + a * line[0]
+            yA = intersectionPA[1] + a * line[1]
+            zA = intersectionPA[2] + a * line[2]
+            xB = intersectionPA[0] + b * line[0]
+            yB = intersectionPA[1] + b * line[1]
+            zB = intersectionPA[2] + b * line[2]
+            pointline = None
+            if vert[0] ==  xA and (vert[1] ==  yA or vert[2] == zA):
+                pointline = (xA, yA, zA)
+            elif vert[0] ==  xB and (vert[1] ==  yB or vert[2] == zB):
+                pointline = (xB, yB, zB)
+            elif vert[1] ==  yA and (vert[0] ==  xA or vert[2] == zA):
+                pointline = (xA, yA, zA)
+            elif vert[1] ==  yB and (vert[0] ==  xB or vert[2] == zB):
+                pointline = (xB, yB, zB)
+            if pointline != None:
+                if triangle_contains_point(pointline, mesh.verts[triangle[0]-1], mesh.verts[triangle[1]-1], mesh.verts[triangle[2]-1]):
+                        return True
+    return False
+def GetNormalsForMesh(mesh):
+    normals = []
+    countsh=0
+    countbad=0
+    indexes=[]
+    trianglenormals=[]
+    allvertices = {}
+    for triangle in mesh.tris:
+        tn = TriangleNormal(mesh.verts[triangle[0]-1], mesh.verts[triangle[1]-1], mesh.verts[triangle[2]-1])
+        if not allvertices.has_key(triangle[0]-1):
+            allvertices[triangle[0]-1] = (0,0,0)
+        if not allvertices.has_key(triangle[1]-1):
+            allvertices[triangle[1]-1] = (0,0,0)
+        if not allvertices.has_key(triangle[2]-1):
+            allvertices[triangle[2]-1] = (0,0,0)
+        curr = allvertices[triangle[0]-1]
+        curr1 = allvertices[triangle[1]-1]
+        curr2 = allvertices[triangle[2]-1]
+        allvertices[triangle[0]-1] = (curr[0]+tn[0],curr[1]+tn[1],curr[2]+tn[2])
+        allvertices[triangle[1]-1] = (curr1[0]+tn[0],curr1[1]+tn[1],curr1[2]+tn[2])
+        allvertices[triangle[2]-1] = (curr2[0]+tn[0],curr2[1]+tn[1],curr2[2]+tn[2])
+    for index in range(len(mesh.verts)):
+        if allvertices.has_key(index):
+            normals.append(normalise(allvertices[index]))
+        else:
+            normals.append((0,0,100))
+        """if index in mesh.deletedindexes:
+           normals.append((0,0,0))
+           continue
+        groupvertex1Normal = (0, 0, 0)
+        tris = mesh.triangles_for_vert(index+1)
+        if (len(tris)==0):
+            mesh.deletedindexes.append(index)
+            normals.append((0,0,0))
+            continue
+        for tring in tris:
+            triangle = mesh.tris[tring]
+            newtrisnormal = TriangleNormal(mesh.verts[triangle[0]-1], mesh.verts[triangle[1]-1], mesh.verts[triangle[2]-1])
+            groupvertex1Normal = (groupvertex1Normal[0] + newtrisnormal[0], groupvertex1Normal[1] + newtrisnormal[1], groupvertex1Normal[2] + newtrisnormal[2])
+        normals.append(normalise(groupvertex1Normal))"""
+    return normals
 
 def UpdateNewVectorsForGroup(mesh, newvectors, groupvertex1, groupvertex2, intersection1, intersection2, oldtriangle, updategroup1 = True, updategroup2 = True):
     newtrisNormal = TriangleNormal(mesh.verts[groupvertex1-1], mesh.verts[groupvertex2-1],  intersection1)
@@ -203,7 +286,7 @@ def UpdateNewVectorsForGroup(mesh, newvectors, groupvertex1, groupvertex2, inter
     for triangle in tris:
         if triangle == oldtriangle:
             continue
-        triangleA = mesh.tris[triangle-1]
+        triangleA = mesh.tris[triangle]
         curr = TriangleNormal(mesh.verts[triangleA[0]-1], mesh.verts[triangleA[1]-1], mesh.verts[triangleA[2]-1])
         groupvertex1Normal = (groupvertex1Normal[0]+curr[0], groupvertex1Normal[1]+curr[1], groupvertex1Normal[2]+curr[2])
     
@@ -211,7 +294,7 @@ def UpdateNewVectorsForGroup(mesh, newvectors, groupvertex1, groupvertex2, inter
     for triangle in tris:
         if triangle == oldtriangle:
             continue
-        triangleA = mesh.tris[triangle-1]
+        triangleA = mesh.tris[triangle]
         curr = TriangleNormal(mesh.verts[triangleA[0]-1], mesh.verts[triangleA[1]-1], mesh.verts[triangleA[2]-1])
         groupvertex2Normal = (groupvertex2Normal[0]+curr[0], groupvertex2Normal[1]+curr[1], groupvertex2Normal[2]+curr[2])
     newintersection1normal = (newtrisNormal[0]+newtris2Normal[0], newtrisNormal[1]+newtris2Normal[1], newtrisNormal[2]+newtris2Normal[2])
@@ -230,6 +313,7 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
         dist = point_to_plane_dist(mesh.verts[vertex], plane)
         if dist < fragThreas:
             S2.append(vertex)
+    keyinterA1 = keyinterA2 = None
     xBoundariesA = [0, 0]
     yBoundariesA = [0, 0]
     zBoundariesA = [0, 0]
@@ -243,18 +327,22 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
     oldvertices = {}
     newverticesindexsA = {}
     newverticesindexsB = {}
+    intersectionsdictA = {}
+    intersectionsdictB = {}
     newtrianglesPartA = []
     newtrianglesPartB = []
     newverticesPartA = []
     newverticesPartB = []
     newvectorsA = []
     newvectorsB = []
-    partAAreas = []
-    parrtBAreas = []
+    vertexA = 0
+    vertexB = 0
     indexA = 0
     indexB = 0
+    countSk = 0
     # iterate through all intersections
     first = True
+    count =0
     for intersections in allIntersections:
         groupvertex = []
         # Starting with handling only 2 edges intersection. figuring out what do with vertexes later.
@@ -276,7 +364,6 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
                 groupvertex.append(edge1[1])
         else:
             continue
-
         tri = mesh.triangles_for_vert(solovertex) # get triangles
         trie0 = mesh.triangles_for_edge(edge0) # get the triangles for cutted edge 0
         trie1 = mesh.triangles_for_edge(edge1) # get the triangles for cutted ddge 1
@@ -290,44 +377,8 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
                 break
 
         oldtriangles[found] = 1
-        line = (intersections[0][1][0] - intersections[1][1][0], intersections[0][1][1] - intersections[1][1][1], intersections[0][1][2] - intersections[1][1][2])
-        tring = mesh.tris[found-1]
-        a = b = None
-        for s in S2:
-            vert = mesh.verts[s]
-            if (line[0] != 0):
-                a = (vert[0] - intersections[0][1][0]) / line[0]
-                if line[1] != 0:
-                    b = (vert[1] - intersections[0][1][1]) / line[1]
-            else:
-                if (line[1] != 0):
-                    a = (vert[1] - intersections[0][1][1]) / line[1]
-                    if (line[2] != 0):
-                        b = (vert[2] - intersections[0][1][2]) / line[2]
-                    else:
-                        b = a
-                else:
-                    if (line[2] != 0):
-                        a = b = (vert[2] - intersections[0][1][2]) / line[2] 
-            if (a != None and b != None):           
-                xA = intersections[0][1][0] + a * line[0]
-                yA = intersections[0][1][1] + a * line[1]
-                zA = intersections[0][1][2] + a * line[2]
-                xB = intersections[0][1][0] + b * line[0]
-                yB = intersections[0][1][1] + b * line[1]
-                zB = intersections[0][1][2] + b * line[2]
-                pointline = None
-                if vert[0] ==  xA and (vert[1] ==  yA or vert[2] == zA):
-                    pointline = (xA, yA, zA)
-                elif vert[0] ==  xB and (vert[1] ==  yB or vert[2] == zB):
-                    pointline = (xB, yB, zB)
-                elif vert[1] ==  yA and (vert[0] ==  xA or vert[2] == zA):
-                    pointline = (xA, yA, zA)
-                elif vert[1] ==  yB and (vert[0] ==  xB or vert[2] == zB):
-                    pointline = (xB, yB, zB)
-                if pointline != None:
-                    if triangle_contains_point(pointline, mesh.verts[tring[0]-1], mesh.verts[tring[1]-1], mesh.verts[tring[2]-1]):
-                        return (None, None)
+        if IsFragilePoint(mesh, mesh.tris[found], S2, intersections[0][1], intersections[1][1]):
+            return (None, None)
 
         ### if we got here then no point is fragile.
         if (first):
@@ -346,7 +397,7 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
             oldvertices[groupvertex[1]] = 1
             if mesh.verts[solovertex-1][compareX] > intersections[0][1][compareX]:
                 #calcs the boundaries
-                xBoundariesA[0] = min(mesh.verts[solovertex-1][0], intersections[0][1][0], intersections[1][1][0])
+                xBoundariesA[0] = min(mesh.verts[solovertex-1][0], intersections[0][1][0], intersections[1][1][0],)
                 xBoundariesA[1] = max(mesh.verts[solovertex-1][0], intersections[0][1][0], intersections[1][1][0])
                 yBoundariesA[0] = min(mesh.verts[solovertex-1][1], intersections[0][1][1], intersections[1][1][1])
                 yBoundariesA[1] = max(mesh.verts[solovertex-1][1], intersections[0][1][1], intersections[1][1][1])
@@ -354,9 +405,16 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
                 zBoundariesA[1] = max(mesh.verts[solovertex-1][2], intersections[0][1][2], intersections[1][1][2])
 
                 newverticesPartA.append(mesh.verts[solovertex-1])
-                newverticesPartA.append(intersections[0][1])
-                newverticesPartA.append(intersections[1][1])
-
+                if intersections[0][3]:
+                    newverticesPartA.append(intersections[0][1])
+                    intersectionsdictA[tuple(intersections[0][1].tolist())] = len(newverticesPartA)
+                    
+                        
+                if intersections[1][3]:
+                    newverticesPartA.append(intersections[1][1])
+                    intersectionsdictA[tuple(intersections[1][1].tolist())] = len(newverticesPartA)
+                    
+                        
 
                 newvectorsA = UpdateNewVectorsForSolo(mesh, newvectorsA, solovertex, intersections[0][1], intersections[1][1], found)
                 
@@ -374,23 +432,31 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
             #       2. Check the order - intersections[0] doesn't necessarily point to the intersection closest to groupvertex[0]
             #          If something is wrong here - expect to see self intersections. of triangles
                 newtrianglesPartA.append((1, 2, 3))
-                partAAreas.append(calculateArea(newverticesPartA[0],newverticesPartA[1], newverticesPartA[2]))
                 if distance(mesh.verts[groupvertex[0]-1], intersections[0][1], intersections[1][1]):
-                    newverticesPartB.append(intersections[0][1])
-                    newverticesPartB.append(intersections[1][1])
+                    if (intersections[0][3]):
+                        newverticesPartB.append(intersections[0][1])
+                        intersectionsdictB[tuple(intersections[0][1].tolist())] = len(newverticesPartB) 
+
+                    if (intersections[1][3]):
+                        newverticesPartB.append(intersections[1][1])
+                        intersectionsdictB[tuple(intersections[1][1].tolist())] = len(newverticesPartB)
                     newtrianglesPartB.append((1, 2, 3))
-                    newtrianglesPartB.append((0, 1, 2))
+                    newtrianglesPartB.append((2, 3, 4))
                     newvectorsB = UpdateNewVectorsForGroup(mesh, newvectorsB, groupvertex[0], groupvertex[1], intersections[0][1], intersections[1][1], found)
                 else:
-                    newverticesPartB.append(intersections[1][1])
-                    newverticesPartB.append(intersections[0][1])
-                    newtrianglesPartB.append((0, 1, 3))
-                    newtrianglesPartB.append((1, 2, 3))
+                    if (intersections[1][3]):
+                        newverticesPartB.append(intersections[1][1])
+                        intersectionsdictB[tuple(intersections[1][1].tolist())] = len(newverticesPartB)
+                    if (intersections[0][3]):
+                        newverticesPartB.append(intersections[0][1])
+                        intersectionsdictB[tuple(intersections[0][1].tolist())] = len(newverticesPartB)
+                    newtrianglesPartB.append((1, 2, 4))
+                    newtrianglesPartB.append((2, 3, 4))
                     newvectorsB = UpdateNewVectorsForGroup(mesh, newvectorsB, groupvertex[0], groupvertex[1], intersections[1][1], intersections[0][1], found)
 
-                newverticesindexsA[solovertex] = 0
-                newverticesindexsB[groupvertex[0]] = 0
-                newverticesindexsB[groupvertex[1]] = 1
+                newverticesindexsA[solovertex] = 1
+                newverticesindexsB[groupvertex[0]] = 1
+                newverticesindexsB[groupvertex[1]] = 2
                 # Setting bounderies
                 vertexA = solovertex
                 vertexB = groupvertex[0]
@@ -404,8 +470,13 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
                 zBoundariesB[1] = max(mesh.verts[solovertex-1][2], intersections[0][1][2], intersections[1][1][2])
 
                 newverticesPartB.append(mesh.verts[solovertex-1])
-                newverticesPartB.append(intersections[0][1])
-                newverticesPartB.append(intersections[1][1])
+                if (intersections[0][3]):
+                    newverticesPartB.append(intersections[0][1])
+                    intersectionsdictB[tuple(intersections[0][1].tolist())] = len(newverticesPartB)
+                if (intersections[1][3]):
+                    newverticesPartB.append(intersections[1][1])
+                    intersectionsdictB[tuple(intersections[1][1].tolist())] = len(newverticesPartB)
+                
                 newvectorsB = UpdateNewVectorsForSolo(mesh, newvectorsB, solovertex, intersections[0][1], intersections[1][1], found)
 
                 #calcs the boundaries
@@ -421,36 +492,50 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
             # TODO: 1. Add new normals for new vertices.
             #       2. Check the order - intersections[0] doesn't necessarily point to the intersection closest to groupvertex[0]
             #          If something is wrong here - expect to see self intersections. of triangles
-                newtrianglesPartB.append((0, 1, 2))
+                newtrianglesPartB.append((1, 2, 3))
+
                 if distance(mesh.verts[groupvertex[0]-1], intersections[0][1], intersections[1][1]):
-                    newverticesPartA.append(mesh.verts[groupvertex[0]-1])
-                    newverticesPartA.append(mesh.verts[groupvertex[1]-1])
-                    newtrianglesPartA.append((0, 1, 2))
+                    if (intersections[0][3]):
+                        newverticesPartA.append(intersections[0][1])
+                        intersectionsdictA[tuple(intersections[0][1].tolist())] = len(newverticesPartA)
+                        
+                            
+                    if (intersections[1][3]):
+                        newverticesPartA.append(intersections[1][1])
+                        intersectionsdictA[tuple(intersections[1][1].tolist())] = len(newverticesPartA)
+                        
+                            
                     newtrianglesPartA.append((1, 2, 3))
+                    newtrianglesPartA.append((2, 3, 4))
                     newvectorsA = UpdateNewVectorsForGroup(mesh, newvectorsA, groupvertex[0], groupvertex[1], intersections[1][1], intersections[0][1], found)
                 else:
-                    newverticesPartA.append(mesh.verts[groupvertex[1]-1])
-                    newverticesPartA.append(mesh.verts[groupvertex[0]-1])
-                    newtrianglesPartA.append((0, 1, 3))
+                    if (intersections[1][3]):
+                        newverticesPartA.append(intersections[1][1])
+                        intersectionsdictA[tuple(intersections[1][1].tolist())] = len(newverticesPartA)
+                        
+                            
+                    if (intersections[0][3]):
+                        newverticesPartA.append(intersections[0][1])
+                        intersectionsdictA[tuple(intersections[0][1].tolist())] = len(newverticesPartA)
+                        
+                            
                     newtrianglesPartA.append((1, 2, 3))
+                    newtrianglesPartA.append((2, 3, 4))
                     newvectorsA = UpdateNewVectorsForGroup(mesh, newvectorsA, groupvertex[0], groupvertex[1], intersections[0][1], intersections[1][1], found)
-                newverticesindexsB[solovertex] = 0
-                newverticesindexsA[groupvertex[0]] = 0
-                newverticesindexsA[groupvertex[1]] = 1
+                newverticesindexsB[solovertex] = 1
+                newverticesindexsA[groupvertex[0]] = 1
+                newverticesindexsA[groupvertex[1]] = 2
                 # Setting bounderies
                 vertexB = solovertex
                 vertexA = groupvertex[0]
-                distA = point_to_plane_dist(mesh.verts[vertexA-1], plane)
-                distB = point_to_plane_dist(mesh.verts[vertexB-1], plane)
         else: # Seperate sides using original bounderies
             numofVerticesA = len(newverticesPartA)
-
+            
+                
             if compute_vertex_side(plane, mesh.verts[solovertex-1], mesh.verts[vertexA-1]):
                 if not oldvertices.has_key(solovertex):
                     addsolo = True
-                    keySolo = len(newverticesPartB)
-                    newverticesindexsB[solovertex] = keySolo
-
+                    
                      #calcs the boundaries
                     xBoundariesB[0] = min(mesh.verts[solovertex-1][0], xBoundariesB[0])
                     xBoundariesB[1] = max(mesh.verts[solovertex-1][0], xBoundariesB[1])
@@ -460,6 +545,8 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
                     zBoundariesB[1] = max(mesh.verts[solovertex-1][2], zBoundariesB[1])
 
                     newverticesPartB.append(mesh.verts[solovertex-1])  # Prevent duplicates possible vertices
+                    keySolo = len(newverticesPartB)
+                    newverticesindexsB[solovertex] = keySolo
                 else:
                     addsolo = False
                     keySolo = newverticesindexsB[solovertex]
@@ -472,14 +559,20 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
                 zBoundariesB[0] = min(intersections[0][1][2], intersections[1][1][2], zBoundariesB[0])
                 zBoundariesB[1] = max(intersections[0][1][2], intersections[1][1][2], zBoundariesB[1])
 
-                newverticesPartB.append(intersections[0][1]) # new vertices - how do we know normals?
-                newverticesPartB.append(intersections[1][1])
+                if (intersections[0][3]):
+                    newverticesPartB.append(intersections[0][1])
+                    keyinterB1 = intersectionsdictB[tuple(intersections[0][1].tolist())] = len(newverticesPartB)
+                else:
+                    keyinterB1 = intersectionsdictB[tuple(intersections[0][1].tolist())]
+                if (intersections[1][3]):
+                    newverticesPartB.append(intersections[1][1])
+                    keyinterB2 = intersectionsdictB[tuple(intersections[1][1].tolist())] = len(newverticesPartB)
+                else:
+                    keyinterB2 = intersectionsdictB[tuple(intersections[1][1].tolist())]
+                
                 newvectorsB = UpdateNewVectorsForSolo(mesh, newvectorsB, solovertex, intersections[0][1], intersections[1][1], found, addsolo)
 
                 if not oldvertices.has_key(groupvertex[0]):
-                    keyGroup0 = len(newverticesPartA)
-                    newverticesindexsA[groupvertex[0]] = keyGroup0
-
                     # calcs the boundaries
                     xBoundariesA[0] = min(mesh.verts[groupvertex[0]-1][0], xBoundariesA[0])
                     xBoundariesA[1] = max(mesh.verts[groupvertex[0]-1][0], xBoundariesA[1])
@@ -490,13 +583,16 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
 
                     newverticesPartA.append(mesh.verts[groupvertex[0]-1])
                     addgroup=True
+                    keyGroup0 = len(newverticesPartA)
+                    
+                        
+                    newverticesindexsA[groupvertex[0]] = keyGroup0
                 else:
                     keyGroup0 = newverticesindexsA[groupvertex[0]]
                     addgroup=False
                 
                 if not oldvertices.has_key(groupvertex[1]):
-                    keyGroup1 = len(newverticesPartA)
-                    newverticesindexsA[groupvertex[1]] = keyGroup1
+                    
 
                     # calcs the boundaries
                     xBoundariesA[0] = min(mesh.verts[groupvertex[1] - 1][0], xBoundariesA[0])
@@ -508,6 +604,10 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
 
                     newverticesPartA.append(mesh.verts[groupvertex[1]-1])
                     addgroup2=True
+                    keyGroup1 = len(newverticesPartA)
+                    
+                        
+                    newverticesindexsA[groupvertex[1]] = keyGroup1
                 else:
                     keyGroup1 = newverticesindexsA[groupvertex[1]]
                     addgroup2=False
@@ -520,24 +620,50 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
                 zBoundariesA[0] = min(intersections[0][1][2], intersections[1][1][2], zBoundariesA[0])
                 zBoundariesA[1] = max(intersections[0][1][2], intersections[1][1][2], zBoundariesA[1])
 
-                newtrianglesPartB.append((keySolo, len(newverticesPartB)-2, len(newverticesPartB)-1))
-                if distance(mesh.verts[keyGroup0-1], intersections[0][1], intersections[1][1]):
-                    newverticesPartA.append(intersections[0][1])
-                    newverticesPartA.append(intersections[1][1])
-                    newtrianglesPartA.append((keyGroup0, keyGroup1, len(newverticesPartA) - 2))
-                    newtrianglesPartA.append((keyGroup1, len(newverticesPartA) - 2, len(newverticesPartA) - 1))
+                newtrianglesPartB.append((keySolo, keyinterB1, keyinterB2))
+
+                if distance(mesh.verts[groupvertex[0]-1], intersections[0][1], intersections[1][1]):
+                    if (intersections[0][3]):
+                        newverticesPartA.append(intersections[0][1])
+                        keyinterA1 = intersectionsdictA[tuple(intersections[0][1].tolist())] = len(newverticesPartA)
+                    else:
+                        keyinterA1 = intersectionsdictA[tuple(intersections[0][1].tolist())]
+                    if (intersections[1][3]):
+                        newverticesPartA.append(intersections[1][1])
+                        keyinterA2 = intersectionsdictA[tuple(intersections[1][1].tolist())] = len(newverticesPartA)
+                        
+                            
+                    else:
+                        keyinterA2 = intersectionsdictA[tuple(intersections[1][1].tolist())]
+
+                    if (keyinterA1 == None or keyinterA2 == None):
+                        print("break")
+                    newtrianglesPartA.append((keyGroup0, keyGroup1, keyinterA1))
+                    newtrianglesPartA.append((keyGroup1, keyinterA1, keyinterA2))
+
                     newvectorsA = UpdateNewVectorsForGroup(mesh, newvectorsA, groupvertex[0], groupvertex[1], intersections[0][1], intersections[1][1], found, addgroup, addgroup2)
                 else:
-                    newverticesPartA.append(intersections[1][1])
-                    newverticesPartA.append(intersections[0][1])
-                    newtrianglesPartA.append((keyGroup0, keyGroup1, len(newverticesPartA) - 1))
-                    newtrianglesPartA.append((keyGroup1, len(newverticesPartA) - 2, len(newverticesPartA) - 1))
+                    if (intersections[1][3]):
+                        newverticesPartA.append(intersections[1][1])
+                        keyinterA1 = intersectionsdictA[tuple(intersections[1][1].tolist())] = len(newverticesPartA)
+                        
+                            
+                    else:
+                        keyinterA1 = intersectionsdictA[tuple(intersections[1][1].tolist())]
+                    if (intersections[0][3]):
+                        newverticesPartA.append(intersections[0][1])
+                        keyinterA2 = intersectionsdictA[tuple(intersections[0][1].tolist())] = len(newverticesPartA)
+                        
+                            
+                    else:
+                        keyinterA2 = intersectionsdictA[tuple(intersections[0][1].tolist())]
+                    if (keyinterA1 == None or keyinterA2 == None):
+                        print("break")
+                    newtrianglesPartA.append((keyGroup0, keyGroup1, keyinterA1))
+                    newtrianglesPartA.append((keyGroup1, keyinterA1, keyinterA2))
                     newvectorsA = UpdateNewVectorsForGroup(mesh, newvectorsA, groupvertex[0], groupvertex[1], intersections[1][1], intersections[0][1], found, addgroup, addgroup2)
             else: 
                 if not oldvertices.has_key(solovertex):
-                    keySolo = len(newverticesPartA)
-                    newverticesindexsA[solovertex] = keySolo
-
                     # calcs the boundaries
                     xBoundariesA[0] = min(mesh.verts[solovertex-1][0], xBoundariesA[0])
                     xBoundariesA[1] = max(mesh.verts[solovertex-1][0], xBoundariesA[1])
@@ -548,6 +674,10 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
 
                     newverticesPartA.append(mesh.verts[solovertex-1])  # Prevent duplicates possible vertices
                     addsolo = True
+                    keySolo = len(newverticesPartA)
+                    
+                        
+                    newverticesindexsA[solovertex] = keySolo
                 else:
                     keySolo = newverticesindexsA[solovertex]
                     addsolo = False
@@ -559,14 +689,24 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
                 yBoundariesA[1] = max(intersections[0][1][1], intersections[1][1][1], yBoundariesA[1])
                 zBoundariesA[0] = min(intersections[0][1][2], intersections[1][1][2], zBoundariesA[0])
                 zBoundariesA[1] = max(intersections[0][1][2], intersections[1][1][2], zBoundariesA[1])
-
-                newverticesPartA.append(intersections[0][1]) # new vertices - how do we know normals?
-                newverticesPartA.append(intersections[1][1])
+                if (intersections[0][3]):
+                    newverticesPartA.append(intersections[0][1])
+                    keyinterA1 = intersectionsdictA[tuple(intersections[0][1].tolist())] = len(newverticesPartA)
+                    
+                        
+                else:
+                    keyinterA1 = intersectionsdictA[tuple(intersections[0][1].tolist())]
+                if (intersections[1][3]):
+                    newverticesPartA.append(intersections[1][1])
+                    keyinterA2 = intersectionsdictA[tuple(intersections[1][1].tolist())] = len(newverticesPartA)
+                    
+                        
+                else:
+                    keyinterA2 = intersectionsdictA[tuple(intersections[1][1].tolist())]
+                
                 newvectorsA = UpdateNewVectorsForSolo(mesh, newvectorsA, solovertex, intersections[0][1], intersections[1][1], found, addsolo)
 
                 if not oldvertices.has_key(groupvertex[0]):
-                    keyGroup0 = len(newverticesPartB)
-                    newverticesindexsB[groupvertex[0]] = keyGroup0
 
                     # calcs the boundaries
                     xBoundariesB[0] = min(mesh.verts[groupvertex[0]-1][0], xBoundariesB[0])
@@ -578,14 +718,13 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
 
                     newverticesPartB.append(mesh.verts[groupvertex[0]-1])
                     addgroup = True
+                    keyGroup0 = len(newverticesPartB)
+                    newverticesindexsB[groupvertex[0]] = keyGroup0
                 else:
                     keyGroup0 = newverticesindexsB[groupvertex[0]]
                     addgroup = False
                     
                 if not oldvertices.has_key(groupvertex[1]):
-                    keyGroup1 = len(newverticesPartB)
-                    newverticesindexsB[groupvertex[1]] = keyGroup1
-
                     # calcs the boundaries
                     xBoundariesB[0] = min(mesh.verts[groupvertex[1]-1][0], xBoundariesB[0])
                     xBoundariesB[1] = max(mesh.verts[groupvertex[1]-1][0], xBoundariesB[1])
@@ -596,6 +735,8 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
 
                     newverticesPartB.append(mesh.verts[groupvertex[1]-1])
                     addgroup2 = True
+                    keyGroup1 = len(newverticesPartB)
+                    newverticesindexsB[groupvertex[1]] = keyGroup1
                 else:
                     keyGroup1 = newverticesindexsB[groupvertex[1]]
                     addgroup2 = False
@@ -607,19 +748,37 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
                 yBoundariesB[1] = max(intersections[0][1][1], intersections[1][1][1], yBoundariesB[1])
                 zBoundariesB[0] = min(intersections[0][1][2], intersections[1][1][2], zBoundariesB[0])
                 zBoundariesB[1] = max(intersections[0][1][2], intersections[1][1][2], zBoundariesB[1])
-                newtrianglesPartA.append((keySolo, len(newverticesPartA)-2, len(newverticesPartA)-1))
+                newtrianglesPartA.append((keySolo, keyinterA1, keyinterA2))
 
-                if distance(mesh.verts[keyGroup0-1], intersections[0][1], intersections[1][1]):
-                    newverticesPartB.append(intersections[0][1])
-                    newverticesPartB.append(intersections[1][1])
-                    newtrianglesPartB.append((keyGroup0, keyGroup1, len(newverticesPartB) - 2))
-                    newtrianglesPartB.append((keyGroup1, len(newverticesPartB) - 2, len(newverticesPartB) - 1))
+                if distance(mesh.verts[groupvertex[0]-1], intersections[0][1], intersections[1][1]):
+                    if (intersections[0][3]):
+                        newverticesPartB.append(intersections[0][1])
+                        keyinterB1 = intersectionsdictB[tuple(intersections[0][1].tolist())] = len(newverticesPartB)
+                    else:
+                        keyinterB1 = intersectionsdictB[tuple(intersections[0][1].tolist())]
+                    if (intersections[1][3]):
+                        newverticesPartB.append(intersections[1][1])
+                        keyinterB2 = intersectionsdictB[tuple(intersections[1][1].tolist())] = len(newverticesPartB)
+                    else:
+                        keyinterB2 = intersectionsdictB[tuple(intersections[1][1].tolist())]
+
+                    newtrianglesPartB.append((keyGroup0, keyGroup1, keyinterB1))
+                    newtrianglesPartB.append((keyGroup1, keyinterB1, keyinterB2))
                     newvectorsB = UpdateNewVectorsForGroup(mesh, newvectorsB, groupvertex[0], groupvertex[1], intersections[0][1], intersections[1][1], found, addgroup, addgroup2)
                 else:
-                    newverticesPartB.append(intersections[1][1])
-                    newverticesPartB.append(intersections[0][1])
-                    newtrianglesPartB.append((keyGroup0, keyGroup1, len(newverticesPartB) - 1))
-                    newtrianglesPartB.append((keyGroup1, len(newverticesPartB) - 2, len(newverticesPartB) - 1))
+                    if (intersections[1][3]):
+                        newverticesPartB.append(intersections[1][1])
+                        keyinterB1 = intersectionsdictB[tuple(intersections[1][1].tolist())] = len(newverticesPartB)
+                    else:
+                        keyinterB1 = intersectionsdictB[tuple(intersections[1][1].tolist())]
+                    if (intersections[0][3]):
+                        newverticesPartB.append(intersections[0][1])
+                        keyinterB2 = intersectionsdictB[tuple(intersections[0][1].tolist())] = len(newverticesPartB)
+                    else:
+                        keyinterB2 = intersectionsdictB[tuple(intersections[0][1].tolist())]
+                    
+                    newtrianglesPartB.append((keyGroup0, keyGroup1, keyinterB1))
+                    newtrianglesPartB.append((keyGroup1, keyinterB1, keyinterB2))
                     newvectorsB = UpdateNewVectorsForGroup(mesh, newvectorsB, groupvertex[0], groupvertex[1], intersections[1][1], intersections[0][1], found, addgroup, addgroup2)
 
             oldvertices[solovertex] = 1
@@ -630,6 +789,195 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
         # Now create 3 lists: 1 for above planar cut model(add 1/2 triangles), 1 for below planar cut model(add rest of new triangles)
         # 1 for old triangles - so we'l know which ones to filter next.
         # iterate through all of the triangles and compose all untouched triangles - add to the right model
+    
+    if first:
+        return (None, None)
+    newTrianglesToHandle = []
+    commonvertices = []
+    for intersections in allIntersections:
+        if intersections[0][0] != INTERSECT_EDGE and intersections[1][0] != INTERSECT_EDGE:
+            for intersection in intersections:
+                xBoundariesA[0] = min(intersection[1][0], xBoundariesA[0])
+                xBoundariesA[1] = max(intersection[1][0], xBoundariesA[1])
+                yBoundariesA[0] = min(intersection[1][1], yBoundariesA[0])
+                yBoundariesA[1] = max(intersection[1][1], yBoundariesA[1])
+                zBoundariesA[0] = min(intersection[1][2], zBoundariesA[0])
+                zBoundariesA[1] = max(intersection[1][2], zBoundariesA[1])
+                xBoundariesB[0] = min(intersection[1][0], xBoundariesB[0])
+                xBoundariesB[1] = max(intersection[1][0], xBoundariesB[1])
+                yBoundariesB[0] = min(intersection[1][1], yBoundariesB[0])
+                yBoundariesB[1] = max(intersection[1][1], yBoundariesB[1])
+                zBoundariesB[0] = min(intersection[1][2], zBoundariesB[0])
+                zBoundariesB[1] = max(intersection[1][2], zBoundariesB[1])
+                newverticesPartA.append(intersection[1])
+                newverticesPartB.append(intersection[1])
+                oldvertices[intersection[2]] = 1
+                
+                newverticesindexsA[intersection[2]] = len(newverticesPartA)
+                
+                    
+                newverticesindexsB[intersection[2]] = len(newverticesPartB)
+                commonvertices.append(intersection[2])
+                for triangle in mesh.triangles_for_vert(intersection[2]):
+                    if triangle not in newTrianglesToHandle:
+                        newTrianglesToHandle.append(triangle)
+        elif intersections[0][0] == INTERSECT_EDGE and intersections[1][0] == INTERSECT_EDGE:
+            continue
+        else:
+            if intersections[0][0] != INTERSECT_EDGE:
+                vertice =  intersections[0][2]
+                verticecor = intersections[0][1]
+                edge = intersections[1][2]
+                intersectionpoint = intersections[1][1]
+            else:
+                vertice =  intersections[1][2]
+                verticecor = intersections[1][1]
+                edge = intersections[0][2]
+                intersectionpoint = intersections[0][1]
+            
+            
+            if newverticesindexsA.has_key(vertice):
+                keyA = newverticesindexsA[vertice]
+            else:
+                newverticesPartA.append(mesh.verts[vertice-1])
+                keyA = len(newverticesPartA)
+                
+                    
+                newverticesindexsA[vertice] = keyA
+                oldvertices[vertice] = 1
+            if newverticesindexsB.has_key(vertice):
+                keyB = newverticesindexsB[vertice]
+            else:
+                newverticesPartB.append(mesh.verts[vertice-1])
+                keyB = len(newverticesPartB)
+                oldvertices[vertice] = 1
+                newverticesindexsB[vertice]=keyB
+
+            if intersectionsdictA.has_key(tuple(intersectionpoint.tolist())):
+                keyintersectionA = intersectionsdictA[tuple(intersectionpoint.tolist())]
+            else:
+                newverticesPartA.append(intersectionpoint)
+                keyintersectionA = len(newverticesPartA)
+                
+                    
+                intersectionsdictA[tuple(intersectionpoint.tolist())] = keyintersectionA
+            
+            if intersectionsdictB.has_key(tuple(intersectionpoint.tolist())):
+                keyintersectionB = intersectionsdictB[tuple(intersectionpoint.tolist())]
+            else:
+                newverticesPartB.append(intersectionpoint)
+                keyintersectionB = len(newverticesPartB)
+                intersectionsdictB[tuple(intersectionpoint.tolist())] = keyintersectionB
+            
+            vertice0 = edge[0]
+            vertice1 = edge[1]
+            for triangle in mesh.triangles_for_vert(vertice):
+                if vertice in mesh.tris[triangle] and vertice0 in mesh.triangles_for_vert(vertice) and vertice1 in mesh.triangles_for_vert(vertice):
+                    oldtriangles[triangle] = 1
+            if compute_vertex_side(plane, mesh.verts[vertice0-1], mesh.verts[vertexA-1]):
+                if newverticesindexsB.has_key(vertice0):
+                    key2B = newverticesindexsB[vertice0]
+                else:
+                    newverticesPartB.append(mesh.verts[vertice0-1])
+                    oldvertice[vertice0]=1
+                    key2B = len(newverticesPartB)
+                    newverticesindexsB[vertice0]=key2B
+
+                if newverticesindexsA.has_key(vertice1):
+                    key2A = newverticesindexsA[vertice1]
+                else:
+                    newverticesPartA.append(mesh.verts[vertice1-1])
+                    oldvertices[vertice1]=1
+                    key2A = len(newverticesPartA)
+                    
+                        
+                    newverticesindexsA[vertice1]= key2A
+            else:
+                if newverticesindexsA.has_key(vertice0):
+                    key2A = newverticesindexsA[vertice0]
+                else:
+                    newverticesPartA.append(mesh.verts[vertice0-1])
+                    oldvertices[vertice0]=1
+                    key2A = len(newverticesPartA)
+                    
+                        
+                    newverticesindexsA[vertice0]=key2A
+
+                if newverticesindexsB.has_key(vertice1):
+                    key2B = newverticesindexsB[vertice1]
+                else:
+                    newverticesPartB.append(mesh.verts[vertice1-1])
+                    oldvertices[vertice1]=1
+                    key2B = len(newverticesPartB)
+                    newverticesindexsB[vertice1]= key2B
+
+            newtrianglesPartA.append((keyA, key2A, keyintersectionA))
+            newtrianglesPartA.append((keyB, key2B, keyintersectionB))
+            xBoundariesA[1] = max(verticecor[0], intersectionpoint[0], mesh.verts[key2A-1][0], xBoundariesA[1])
+            yBoundariesA[1] = max(verticecor[1], intersectionpoint[1], mesh.verts[key2A-1][1], yBoundariesA[1])
+            zBoundariesA[1] = max(verticecor[2], intersectionpoint[2], mesh.verts[key2A-1][2], zBoundariesA[1])
+            yBoundariesB[1] = max(verticecor[1], intersectionpoint[1], mesh.verts[key2B-1][1], yBoundariesB[1])
+            xBoundariesB[1] = max(verticecor[0], intersectionpoint[0], mesh.verts[key2B-1][0], xBoundariesB[1])
+            zBoundariesB[1] = max(verticecor[2], intersectionpoint[2], mesh.verts[key2B-1][2], zBoundariesB[1])
+            
+            xBoundariesA[0] = min(verticecor[0], intersectionpoint[0], mesh.verts[key2A-1][0], xBoundariesA[0])
+            yBoundariesA[0] = min(verticecor[1], intersectionpoint[1], mesh.verts[key2A-1][1], yBoundariesA[0])
+            zBoundariesA[0] = min(verticecor[2], intersectionpoint[2], mesh.verts[key2A-1][2], zBoundariesA[0])
+            xBoundariesB[0] = min(verticecor[0], intersectionpoint[0], mesh.verts[key2B-1][0],  xBoundariesB[0])
+            yBoundariesB[0] = min(verticecor[1], intersectionpoint[1], mesh.verts[key2B-1][1], yBoundariesB[0])
+            zBoundariesB[0] = min(verticecor[2], intersectionpoint[2], mesh.verts[key2B-1][2], zBoundariesB[0])
+
+    for triangle in newTrianglesToHandle:
+        triangleSide = None
+        if oldtriangles.has_key(triangle):
+            continue
+        oldtriangles[triangle] = 1
+        tring = mesh.tris[triangle]
+        for vertex in tring:
+            if (oldvertices.has_key(vertex)):
+                if triangleSide == None and vertex not in commonvertices:
+                    if compute_vertex_side(plane, mesh.verts[vertex-1], mesh.verts[vertexA-1]):
+                        triangleSide = 'B'
+                    else:
+                        triangleSide = 'A'
+                continue
+            oldvertices[vertex] = 1
+            if compute_vertex_side(plane, mesh.verts[vertex-1], mesh.verts[vertexA-1]):
+                if (triangleSide == None):
+                    triangleSide = 'B'
+                xBoundariesB[0] = min(mesh.verts[vertex][0], xBoundariesB[0])
+                xBoundariesB[1] = max(mesh.verts[vertex][0], xBoundariesB[1])
+                yBoundariesB[0] = min(mesh.verts[vertex][1], yBoundariesB[0])
+                yBoundariesB[1] = max(mesh.verts[vertex][1], yBoundariesB[1])
+                zBoundariesB[0] = min(mesh.verts[vertex][2], zBoundariesB[0])
+                zBoundariesB[1] = max(mesh.verts[vertex][2], zBoundariesB[1])
+                newverticesPartB.append(mesh.verts[vertex-1])
+                newverticesindexsB[vertex] = len(newverticesPartB)
+            else:
+                if (triangleSide == None):
+                    triangleSide = 'A'
+                xBoundariesA[0] = min(mesh.verts[vertex][0], xBoundariesA[0])
+                xBoundariesA[1] = max(mesh.verts[vertex][0], xBoundariesA[1])
+                yBoundariesA[0] = min(mesh.verts[vertex][1], yBoundariesA[0])
+                yBoundariesA[1] = max(mesh.verts[vertex][1], yBoundariesA[1])
+                zBoundariesA[0] = min(mesh.verts[vertex][2], zBoundariesA[0])
+                zBoundariesA[1] = max(mesh.verts[vertex][2], zBoundariesA[1])
+                newverticesPartA.append(mesh.verts[vertex-1])
+                newverticesindexsA[vertex] = len(newverticesPartA)
+                
+                        
+        
+        if (triangleSide == 'A'):
+            if (newverticesindexsA.has_key(tring[0]) and newverticesindexsA.has_key(tring[1]) and newverticesindexsA.has_key(tring[2])):
+                newtrianglesPartA.append((newverticesindexsA[tring[0]], newverticesindexsA[tring[1]], newverticesindexsA[tring[2]]))
+            else:
+                countSk = countSk +1
+        else:
+            if (newverticesindexsA.has_key(tring[0]) and newverticesindexsA.has_key(tring[1]) and newverticesindexsA.has_key(tring[2])):
+                newtrianglesPartB.append((newverticesindexsB[tring[0]], newverticesindexsB[tring[1]], newverticesindexsB[tring[2]]))
+            else:
+                countSk = countSk +1
+     
     newTrianglesForComparison = []
     newVerticesForComparison = []
     # compute additional vertices
@@ -637,11 +985,11 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
         if oldvertices.has_key(i+1):
             continue
         newVerticesForComparison.append(i)
-
+    newvectorsBB=[]
+    newvectorsAA=[] 
     for vertex in newVerticesForComparison:
+        oldvertices[vertex+1]=1
         if compute_vertex_side(plane, mesh.verts[vertex], mesh.verts[vertexA-1]):
-            newverticesindexsB[vertex+1] = len(newverticesPartB)
-
             # calcs the boundaries
             xBoundariesB[0] = min(mesh.verts[vertex][0], xBoundariesB[0])
             xBoundariesB[1] = max(mesh.verts[vertex][0], xBoundariesB[1])
@@ -651,10 +999,9 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
             zBoundariesB[1] = max(mesh.verts[vertex][2], zBoundariesB[1])
 
             newverticesPartB.append(mesh.verts[vertex])
-            newvectorsB.append(mesh.normals[vertex])
+            newvectorsBB.append(mesh.normals[vertex])
+            newverticesindexsB[vertex+1] = len(newverticesPartB)
         else:
-            newverticesindexsA[vertex + 1] = len(newverticesPartA)
-
             # calcs the boundaries
             xBoundariesA[0] = min(mesh.verts[vertex][0], xBoundariesA[0])
             xBoundariesA[1] = max(mesh.verts[vertex][0], xBoundariesA[1])
@@ -664,7 +1011,15 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
             zBoundariesA[1] = max(mesh.verts[vertex][2], zBoundariesA[1])
 
             newverticesPartA.append(mesh.verts[vertex])
-            newvectorsA.append(mesh.normals[vertex])
+            if (len(mesh.normals) == vertex):
+                newvectorsAA.append(mesh.normals[vertex-1])
+            else:
+                newvectorsAA.append(mesh.normals[vertex])
+            newverticesindexsA[vertex + 1] = len(newverticesPartA)
+            
+                
+    
+
     # compute additional triangles
     for i in range(len(mesh.tris)):
         if (oldtriangles.has_key(i) or len(mesh.tris[i])>3):
@@ -673,16 +1028,17 @@ def split_model(mesh, plane, S, fragThreas = 0.001):
 
     sideAtriangles, sideBtriangles = compute_triangle_sides(mesh, plane, newTrianglesForComparison, vertexA, vertexB, newverticesindexsA, newverticesindexsB)
     newtrianglesPartA = newtrianglesPartA + sideAtriangles
+    trianglesAsListA = [list(triangle) for triangle in newtrianglesPartA]
     newtrianglesPartB = newtrianglesPartB + sideBtriangles
-    modelA = TriangleMesh(newverticesPartA, newtrianglesPartA)
-    modelA.normals = newvectorsA
+    trianglesAsListB = [list(triangle) for triangle in newtrianglesPartB]
+    modelA = TriangleMesh(newverticesPartA, trianglesAsListA)
     modelA.boundaries = True
     modelA.xBoundaries = xBoundariesA
     modelA.yBoundaries = yBoundariesA
     modelA.zBoundaries = zBoundariesA
-
-    modelB = TriangleMesh(newverticesPartB, newtrianglesPartB)
-    modelB.normals = newvectorsB
+    modelA.normals = GetNormalsForMesh(modelA)
+    modelB = TriangleMesh(newverticesPartB, trianglesAsListB)
+    modelB.normals = GetNormalsForMesh(modelB)
     modelB.boundaries = True
     modelB.xBoundaries = xBoundariesB
     modelB.yBoundaries = yBoundariesB
@@ -694,18 +1050,109 @@ def compute_vertex_side(plane, vertex, vertexAside, dist_tol=1e-8):
     distA = point_to_plane_dist(vertexAside, plane)
     vertex = point_to_plane_dist(vertex, plane)
     return vertex * distA < 0
+def largestPart(BSP, x_goal, y_goal, z_goal):
+    largestMesh = None
+    largestDiff = 0
+    bspWithoutLargest = []
 
-def largestPart(BSP):
-    largestMesh = BSP.meshs[0]
-    largestVolume = VolumeOfMesh(largestMesh)
+    for mesh in BSP.meshs:
+        if (mesh.boundaries == False):
+            mesh.xBoundaries = [mesh.verts[0][0], mesh.verts[0][0]]
+            mesh.yBoundaries = [mesh.verts[0][1], mesh.verts[0][1]]
+            mesh.zBoundaries = [mesh.verts[0][2], mesh.verts[0][2]]
+            for vertices in mesh.verts:
+                if (vertices[0] < mesh.xBoundaries[0]):
+                    mesh.xBoundaries[0] = vertices[0]
+                elif (vertices[0] > mesh.xBoundaries[1]):
+                    mesh.xBoundaries[1] = vertices[0]
+                if (vertices[1] < mesh.yBoundaries[0]):
+                    mesh.yBoundaries[0] = vertices[1]
+                elif (vertices[1] > mesh.yBoundaries[1]):
+                    mesh.yBoundaries[1] = vertices[1]
+                if (vertices[2] < mesh.zBoundaries[0]):
+                    mesh.zBoundaries[0] = vertices[2]
+                elif (vertices[2] > mesh.zBoundaries[1]):
+                    mesh.zBoundaries[1] = vertices[2]
+        if math.fabs(mesh.xBoundaries[1] - mesh.xBoundaries[0]) > x_goal:
+            xDiff = math.fabs(mesh.xBoundaries[1] - mesh.xBoundaries[0]) - x_goal
+        else:
+            xDiff = 0
+        if math.fabs(mesh.yBoundaries[1] - mesh.yBoundaries[0]) > y_goal:
+            yDiff = math.fabs(mesh.yBoundaries[1] - mesh.yBoundaries[0]) - y_goal
+        else:
+            yDiff = 0
+        if math.fabs(mesh.zBoundaries[1] - mesh.zBoundaries[0]) > z_goal:
+            zDiff = math.fabs(mesh.zBoundaries[1] - mesh.zBoundaries[0]) - z_goal
+        else:
+            zDiff = 0
+        diff = max(xDiff, yDiff, zDiff)
+
+        if (diff > largestDiff):
+            if (largestMesh != None):
+                bspWithoutLargest.append(largestMesh)
+            largestDiff = diff
+            largestMesh = mesh
+        else:
+            bspWithoutLargest.append(mesh)
+    if (largestMesh == None): #should not happen
+        largestMesh = BSP.meshs[0]
+    return (largestMesh, bspWithoutLargest)
+
+def calcDiffGoal(BSP, x_goal, y_goal, z_goal):
+    maxDiff = 0
+    for mesh in BSP.meshs:
+        if (mesh.boundaries == False):
+            mesh.xBoundaries = [mesh.verts[0][0], mesh.verts[0][0]]
+            mesh.yBoundaries = [mesh.verts[0][1], mesh.verts[0][1]]
+            mesh.zBoundaries = [mesh.verts[0][2], mesh.verts[0][2]]
+            for vertices in mesh.verts:
+                if (vertices[0] < mesh.xBoundaries[0]):
+                    mesh.xBoundaries[0] = vertices[0]
+                elif (vertices[0] > mesh.xBoundaries[1]):
+                    mesh.xBoundaries[1] = vertices[0]
+                if (vertices[1] < mesh.yBoundaries[0]):
+                    mesh.yBoundaries[0] = vertices[1]
+                elif (vertices[1] > mesh.yBoundaries[1]):
+                    mesh.yBoundaries[1] = vertices[1]
+                if (vertices[2] < mesh.zBoundaries[0]):
+                    mesh.zBoundaries[0] = vertices[2]
+                elif (vertices[2] > mesh.zBoundaries[1]):
+                    mesh.zBoundaries[1] = vertices[2]
+        if math.fabs(mesh.xBoundaries[1] - mesh.xBoundaries[0]) > x_goal:
+            xDiff = math.fabs(mesh.xBoundaries[1] - mesh.xBoundaries[0]) - x_goal
+        else:
+            xDiff = 0
+        if math.fabs(mesh.yBoundaries[1] - mesh.yBoundaries[0]) > y_goal:
+            yDiff = math.fabs(mesh.yBoundaries[1] - mesh.yBoundaries[0]) - y_goal
+        else:
+            yDiff = 0
+        if math.fabs(mesh.zBoundaries[1] - mesh.zBoundaries[0]) > z_goal:
+            zDiff = math.fabs(mesh.zBoundaries[1] - mesh.zBoundaries[0]) - z_goal
+        else:
+            zDiff = 0
+
+        diff = max(xDiff, yDiff, zDiff)
+
+        if (diff > maxDiff):
+            maxDiff = diff
+
+    return maxDiff
+
+
+def largestPart2(BSP):
+    largestMesh = None
+    largestVolume = 0
+    bspWithoutLargest = []
     for mesh in BSP.meshs:
         volume = VolumeOfMesh(mesh)
         if (volume > largestVolume):
+            if (largestMesh != None):
+                bspWithoutLargest.append(largestMesh)
             largestVolume = volume
             largestMesh = mesh
-    return largestMesh
-
-
+        else:
+            bspWithoutLargest.append(mesh)
+    return (largestMesh, bspWithoutLargest)
 
 def allAtGoal(BSPs, x_goal, y_goal, z_goal):
     for BSP in BSPs:
@@ -715,12 +1162,17 @@ def allAtGoal(BSPs, x_goal, y_goal, z_goal):
 
 def notAtGoalSet(BSPs, x_goal, y_goal, z_goal):
     list = []
+    newBSPs = []
     for BSP in BSPs:
         if (atGoal(BSP, x_goal, y_goal, z_goal) == False):
             list.append(BSP)
-    return list
+        else:
+            newBSPs.append(BSP)
+    return (list, newBSPs)
 
 def atGoal(BSP, x_goal, y_goal, z_goal):
+    #if (len(BSP.meshs) == 0):
+    #    return False
     for mesh in BSP.meshs:
         if (atMeshGoal(mesh, x_goal, y_goal, z_goal) == False):
             mesh.atGoal = False
@@ -943,6 +1395,7 @@ def cross_section_mesh(mesh, plane, dist_tol=1e-8):
     # List of all cross-section polylines
     P = []
     allIntersections = []
+    allInterPoints = []
     while len(T) > 0:
         tid = T.pop()
 
@@ -950,6 +1403,21 @@ def cross_section_mesh(mesh, plane, dist_tol=1e-8):
                 mesh, tid, plane, dist_tol)
 
         if len(intersections) == 2:
+            
+            if intersections[0][1].tolist() in allInterPoints:
+                intersections[0] = (intersections[0][0], intersections[0][1], intersections[0][2], False)
+            else:
+                intersections[0] = (intersections[0][0], intersections[0][1], intersections[0][2], True)
+                if intersections[0][0] == INTERSECT_EDGE and intersections[1][0] == INTERSECT_EDGE:
+                    allInterPoints.append(intersections[0][1].tolist())
+
+            if intersections[1][1].tolist() in allInterPoints:
+               intersections[1] = (intersections[1][0], intersections[1][1], intersections[1][2], False)
+            else:
+                intersections[1] = (intersections[1][0], intersections[1][1], intersections[1][2], True)
+                if intersections[0][0] == INTERSECT_EDGE and intersections[1][0] == INTERSECT_EDGE:
+                    allInterPoints.append(intersections[1][1].tolist())
+            
             allIntersections.append(intersections)
             #for intersection in intersections:
              #   p, T = _walk_polyline(tid, intersection, T, mesh, plane,
@@ -1043,14 +1511,12 @@ def merge_close_vertices(verts, faces, close_epsilon=1e-5):
 def f_util(T, object):
     V = VolumeOfMesh(object)
     max = 0;
-    for p in T:
+    for p in T.meshs:
         theta = calc_theta(p)
         Vp = VolumeOfMesh(p);
         m = 1-Vp/(theta*V)
         if (m > max):
             max = m
-
-    return max
 
 def calc_theta(p):
     return 10
