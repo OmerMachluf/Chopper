@@ -12,6 +12,7 @@ RED = (0,255,0)
 WHITE = (255, 255, 255)
 FILENAME = "Santa Claus2.obj"
 b = 4
+#X,Y,Z GOALS are the maximum sizes of the models in each axis
 X_GOAL = 1
 Y_GOAL = 2
 Z_GOAL = 1
@@ -155,8 +156,6 @@ def EvalCuts(mesh, T2, P, newNormals, obj, beamCounter, counter = 0):
                 meshsAfterSplit.append(modelB)
                 bspAfterSplit.meshs = meshsAfterSplit
                 resultSet.append(bspAfterSplit)
-                if (modelA.boundaries == False or modelB.boundaries == False):
-                    print("false boundaries")
     return resultSet
 
 def minSizes(BSPs, x_goal, y_goal, z_goal):
@@ -197,7 +196,7 @@ def beamSearch(mesh, b, x_goal, y_goal, z_goal, newNormals, obj):
         newBSPs = []
         notAtGoalSet, currentBSPs = meshcut.notAtGoalSet(currentBSPs, x_goal, y_goal, z_goal)
         for bsp in notAtGoalSet:
-            # T2 is meshs of the bsp T without P(the largest part in T)
+            # T2 is meshs of the bsp without P(the largest part in T)
             (P, T2) = meshcut.largestPart(bsp, x_goal, y_goal, z_goal) #p is a mesh
             beamCounter = beamCounter + 1
             newBSPs = newBSPs + EvalCuts(mesh, T2, P, newNormals, obj, beamCounter)
@@ -243,11 +242,10 @@ for normal in orc.normals:
 # on a given vector direction so we can adjust the offset of the surface to be between the boundries
 mesh = meshcut.TriangleMesh(tuple(obj.vertices), tuple(obj.triangles))
 mesh.normals = obj.normals
-#orig = [0, 0, 0]
 
 choppedBsp = beamSearch(mesh, b, X_GOAL, Y_GOAL, Z_GOAL, newNormals, obj)
-print(choppedBsp)
 
+#show the chopped objects
 for mesh in choppedBsp.meshs:
     mesh.gl_list = glGenLists(1)
     glNewList(mesh.gl_list, GL_COMPILE)
